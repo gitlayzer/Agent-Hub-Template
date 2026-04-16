@@ -40,6 +40,8 @@ make test-agent AGENT=my-agent
 也可以直接用：
 
 ```bash
+make list-agents
+make status-agents
 make enable-agent AGENT=my-agent
 make disable-agent AGENT=my-agent
 ```

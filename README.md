@@ -212,6 +212,7 @@ make test-agent AGENT=hermes
 ### Build and test everything you have explicitly enabled in the registry
 
 ```bash
+make status-agents
 make enable-agent AGENT=hermes
 make build-all
 make test-all
@@ -298,6 +299,8 @@ If the new agent should participate in repo-wide automation, keep it registered 
 You can do that without editing YAML manually:
 
 ```bash
+make list-agents
+make status-agents
 make enable-agent AGENT=my-agent
 make disable-agent AGENT=my-agent
 ```
