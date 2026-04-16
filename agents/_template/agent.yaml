@@ -8,6 +8,8 @@ source:
   type: manual
   repository: replace-me
   ref: main
+build:
+  args: {}
 runtime:
   entrypoint: /opt/agent/entrypoint.sh
   healthcheck: /opt/agent/healthcheck.sh

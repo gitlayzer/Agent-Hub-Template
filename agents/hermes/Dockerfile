@@ -1,9 +1,9 @@
 ARG BASE_IMAGE=agent-hub/base-ubuntu:dev
 FROM ${BASE_IMAGE}
 
-ARG HERMES_GIT_URL=https://github.com/NousResearch/hermes-agent.git
-ARG HERMES_REF=v2026.4.13
-ARG HERMES_EXTRAS=cron,cli,pty,mcp,acp,web
+ARG HERMES_GIT_URL
+ARG HERMES_REF
+ARG HERMES_EXTRAS
 
 ENV HERMES_HOME=/home/agent/.hermes \
     HERMES_SRC=/opt/hermes/src \

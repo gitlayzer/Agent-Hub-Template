@@ -120,16 +120,20 @@ Every agent follows the same contract:
 - `tests/smoke.sh`
 - `README.md`
 
+In addition, agent-specific build defaults should live in `agent.yaml` under `build.args`, while Dockerfiles should stay declarative and only declare the `ARG` names they consume.
+
 That makes the repository easier to extend without turning shared scripts into per-agent snowflakes.
 
 ### 3. Registry-driven automation
 
-The registry is the source of truth for what the repository knows how to build and test.
+The registry is the source of truth for which bases and agents this repository recognizes and whether they participate in automation.
 
-- `registry/bases.yaml` defines reusable base images
-- `registry/agents.yaml` defines recognized agent images
+- `registry/bases.yaml` defines recognized base directories
+- `registry/agents.yaml` defines recognized agent directories
+- `base/<name>/base.yaml` defines base image defaults
+- `agents/<name>/agent.yaml` defines agent build/runtime/image metadata
 
-This keeps local workflows and CI behavior deterministic.
+This split keeps local workflows and CI behavior deterministic without duplicating per-agent metadata across multiple files.
 
 ### 4. Easy growth from one agent to many
 
@@ -148,7 +152,7 @@ The same repository structure works whether you support:
 | `agents/` | Per-agent runtime definitions and tests |
 | `shared/` | Common shell helpers and reusable logic |
 | `scripts/` | Build, validate, scaffold, and test entrypoints |
-| `registry/` | Enabled bases and agents |
+| `registry/` | Registered bases and agents |
 | `.github/workflows/` | CI and release workflows |
 | `docs/` | Authoring and architecture guidance |
 
@@ -158,14 +162,14 @@ The same repository structure works whether you support:
 
 | Agent | Status | Runtime source | Default image | Best for |
 |---|---|---|---|---|
-| Hermes | Enabled | GitHub source (`NousResearch/hermes-agent`) | `agent-hub/hermes:dev` | Hermes CLI workflows |
-| OpenClaw | Enabled | npm package + upstream project | `agent-hub/openclaw:dev` | OpenClaw CLI / gateway workflows |
+| Hermes | Disabled by default | GitHub source (`NousResearch/hermes-agent`) | `agent-hub/hermes:dev` | Hermes CLI workflows |
+| OpenClaw | Disabled by default | npm package + upstream project | `agent-hub/openclaw:dev` | OpenClaw CLI / gateway workflows |
 
 ---
 
 ## Shared base layer
 
-All currently enabled agents build on the reusable Ubuntu base layer.
+All agents in this repository build on the reusable Ubuntu base layer. By default, agent entries stay disabled in `registry/agents.yaml` until you explicitly turn them on for `build-all`, `test-all`, or CI automation.
 
 Included today:
 - Ubuntu 24.04
@@ -205,7 +209,7 @@ make build-agent AGENT=hermes
 make test-agent AGENT=hermes
 ```
 
-### Build and test everything enabled in the registry
+### Build and test everything you have explicitly enabled in the registry
 
 ```bash
 make build-all
@@ -240,10 +244,11 @@ This repository is intentionally built so adding a new agent stays boring and re
 
 ### Minimal workflow
 
-1. Create a new directory under `agents/`
-2. Add the required agent files
-3. Register the agent in `registry/agents.yaml`
-4. Build and test it through the shared scripts
+1. Run `make new-agent AGENT=my-agent` or create `agents/my-agent/`
+2. Implement the required files inside that directory
+3. Register the path once in `registry/agents.yaml` (the scaffold already does this for you)
+4. Put agent-specific build defaults in `agent.yaml` under `build.args`
+5. Run `make validate`, `make build-agent AGENT=my-agent`, and `make test-agent AGENT=my-agent`
 
 ### Fast scaffold
 
@@ -251,7 +256,7 @@ This repository is intentionally built so adding a new agent stays boring and re
 make new-agent AGENT=my-agent
 ```
 
-This copies `agents/_template` into a new agent directory and appends a new registry entry.
+This copies `agents/_template` into a new agent directory, appends the registry entry automatically, and prints the exact next steps so a new contributor can keep moving without guessing.
 
 ### Required per-agent files
 
@@ -266,6 +271,19 @@ agents/<name>/
   README.md
 ```
 
+### Build argument convention
+
+If your image needs version pins or build-time knobs, put them in `agent.yaml`:
+
+```yaml
+build:
+  args:
+    MY_AGENT_VERSION: 1.2.3
+    NODE_VERSION: 24.14.1
+```
+
+Then let `scripts/build-agent.sh` pass them to Docker automatically. For one-off overrides, you can still set same-named environment variables before running `make build-agent`.
+
 ### Local verification
 
 ```bash
@@ -273,9 +291,11 @@ make build-agent AGENT=my-agent
 make test-agent AGENT=my-agent
 ```
 
-If the new agent should participate in repo-wide automation, enable it in `registry/agents.yaml` after it builds and passes smoke tests.
+If the new agent should participate in repo-wide automation, keep it registered but leave `enabled: false` by default. Only switch that one flag to `enabled: true` when you explicitly want it to join `build-all`, `test-all`, or CI.
 
 More guidance: [`docs/adding-a-new-agent.md`](./docs/adding-a-new-agent.md)
+
+If you are adding an agent for the first time, read that document first — it explains the full step-by-step flow, file responsibilities, verification order, and common pitfalls.
 
 ---
 

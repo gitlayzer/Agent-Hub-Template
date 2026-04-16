@@ -2,11 +2,10 @@
 
 This image packages the real OpenClaw CLI from the official npm package `openclaw@2026.4.14`.
 
-Quick checks:
+Quick check:
 
 ```bash
 docker run --rm agent-hub/openclaw:dev --version
-docker run --rm agent-hub/openclaw:dev gateway --help
 ```
 
 Interactive shell:

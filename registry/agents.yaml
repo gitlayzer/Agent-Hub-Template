@@ -1,11 +1,7 @@
 agents:
   - name: hermes
     path: agents/hermes
-    base: ubuntu
-    image: agent-hub/hermes:dev
-    enabled: true
+    enabled: false
   - name: openclaw
     path: agents/openclaw
-    base: ubuntu
-    image: agent-hub/openclaw:dev
-    enabled: true
+    enabled: false

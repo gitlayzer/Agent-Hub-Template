@@ -2,21 +2,21 @@
 set -euo pipefail
 
 BASE="${1:-ubuntu}"
-META_FILE="base/${BASE}/base.yaml"
+META_OUTPUT="$(python3 scripts/repo_meta.py show-base "$BASE" --format shell)"
+
+META_REPOSITORY=""
+DEFAULT_TAG=""
+while IFS=$'\t' read -r kind key value; do
+  [[ -n "${kind:-}" ]] || continue
+  if [[ "$kind" == "META" ]]; then
+    case "$key" in
+      REPOSITORY) META_REPOSITORY="$value" ;;
+      DEFAULT_TAG) DEFAULT_TAG="$value" ;;
+    esac
+  fi
+done <<< "$META_OUTPUT"
+
 DOCKERFILE="base/${BASE}/Dockerfile"
-
-if [[ ! -f "$DOCKERFILE" ]]; then
-  echo "Base Dockerfile not found: $DOCKERFILE" >&2
-  exit 1
-fi
-
-if [[ ! -f "$META_FILE" ]]; then
-  echo "Base metadata not found: $META_FILE" >&2
-  exit 1
-fi
-
-META_REPOSITORY="$(awk '/repository:/{print $2; exit}' "$META_FILE")"
-DEFAULT_TAG="$(awk '/tag:/{print $2; exit}' "$META_FILE")"
 REPOSITORY="${REGISTRY_OVERRIDE:-$META_REPOSITORY}"
 IMAGE="${REPOSITORY}:${BASE_TAG:-$DEFAULT_TAG}"
 

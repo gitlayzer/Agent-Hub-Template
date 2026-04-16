@@ -9,6 +9,10 @@ source:
   package: openclaw
   version: 2026.4.14
   repository: https://github.com/openclaw/openclaw
+build:
+  args:
+    OPENCLAW_VERSION: 2026.4.14
+    NODE_VERSION: 24.14.1
 runtime:
   entrypoint: /opt/agent/entrypoint.sh
   healthcheck: /opt/agent/healthcheck.sh

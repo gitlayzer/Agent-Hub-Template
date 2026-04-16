@@ -32,9 +32,20 @@ PY
 cat >> registry/agents.yaml <<EOF
   - name: ${AGENT}
     path: agents/${AGENT}
-    base: ubuntu
-    image: agent-hub/${AGENT}:dev
     enabled: false
 EOF
 
-echo "Created new agent scaffold at $TARGET and appended registry/agents.yaml"
+cat <<EOF
+Created new agent scaffold at ${TARGET}
+Registered ${AGENT} in registry/agents.yaml with enabled: false
+
+Next steps:
+  1. Read docs/adding-a-new-agent.md
+  2. Update ${TARGET}/agent.yaml
+  3. Implement ${TARGET}/install.sh
+  4. Update ${TARGET}/Dockerfile, entrypoint.sh, healthcheck.sh, tests/smoke.sh
+  5. Run: make validate
+  6. Run: make build-agent AGENT=${AGENT}
+  7. Run: make test-agent AGENT=${AGENT}
+  8. Set enabled: true only after the agent really builds and passes smoke tests
+EOF

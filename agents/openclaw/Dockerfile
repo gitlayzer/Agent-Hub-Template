@@ -1,8 +1,8 @@
 ARG BASE_IMAGE=agent-hub/base-ubuntu:dev
 FROM ${BASE_IMAGE}
 
-ARG OPENCLAW_VERSION=2026.4.14
-ARG NODE_VERSION=24.14.1
+ARG OPENCLAW_VERSION
+ARG NODE_VERSION
 ARG TARGETARCH
 
 ENV OPENCLAW_CONFIG_DIR=/home/agent/.config/openclaw     OPENCLAW_STATE_DIR=/home/agent/.local/share/openclaw     OPENCLAW_INSTALL_PREFIX=/opt/openclaw     NODE_COMPILE_CACHE=/home/agent/.cache/openclaw/compile-cache     OPENCLAW_NO_RESPAWN=1     PATH=/opt/openclaw/bin:/opt/node/bin:$PATH

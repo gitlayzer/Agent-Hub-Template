@@ -1,8 +1,10 @@
 # change-me agent template
 
+First read: `docs/adding-a-new-agent.md`
+
 This directory is the scaffold for a new agent image.
 
-After copying it to `agents/<agent-name>/`, update at least:
+Before you try to build it, update at least:
 
 - `agent.yaml`
 - `Dockerfile`
@@ -10,6 +12,15 @@ After copying it to `agents/<agent-name>/`, update at least:
 - `entrypoint.sh`
 - `healthcheck.sh`
 - `tests/smoke.sh`
+- `README.md`
+
+Quick checklist:
+
+- Replace placeholder metadata such as `replace-me`
+- Put build defaults in `agent.yaml -> build.args`
+- Keep all agent-specific logic inside this directory
+- Leave `enabled: false` in `registry/agents.yaml` until the image really builds and passes smoke tests
+- Run `make validate`, `make build-agent AGENT=change-me`, and `make test-agent AGENT=change-me`
 
 Important:
 

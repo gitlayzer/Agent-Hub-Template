@@ -8,6 +8,11 @@ source:
   type: git
   repository: https://github.com/NousResearch/hermes-agent.git
   ref: v2026.4.13
+build:
+  args:
+    HERMES_GIT_URL: https://github.com/NousResearch/hermes-agent.git
+    HERMES_REF: v2026.4.13
+    HERMES_EXTRAS: cron,cli,pty,mcp,acp,web
 runtime:
   entrypoint: /opt/agent/entrypoint.sh
   healthcheck: /opt/agent/healthcheck.sh

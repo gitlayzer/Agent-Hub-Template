@@ -22,14 +22,6 @@ Check version:
 docker run --rm agent-hub/hermes:dev version
 ```
 
-Run doctor:
-
-```bash
-docker run --rm -it \
-  -v $(pwd)/.hermes:/home/agent/.hermes \
-  agent-hub/hermes:dev doctor
-```
-
 Open a shell inside the image:
 
 ```bash
