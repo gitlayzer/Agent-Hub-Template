@@ -16,7 +16,9 @@ echo "[2/4] Registered agent status"
 
 echo
 echo "[3/4] Shell script syntax"
-bash -n scripts/*.sh
+while IFS= read -r file; do
+  bash -n "$file"
+done < <(find scripts agents -type f -name '*.sh' | sort)
 
 echo
 echo "[4/4] Python helper syntax"

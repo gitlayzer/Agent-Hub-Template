@@ -1,22 +1,13 @@
 name: openclaw
-version: "2026.4.14"
-base: ubuntu
 image:
   repository: agent-hub/openclaw
   tag: dev
-source:
-  type: npm
-  package: openclaw
-  version: 2026.4.14
-  repository: https://github.com/openclaw/openclaw
 build:
   args:
     OPENCLAW_VERSION: 2026.4.14
     NODE_VERSION: 24.14.1
-runtime:
-  entrypoint: /opt/agent/entrypoint.sh
-  healthcheck: /opt/agent/healthcheck.sh
-  user: agent
+smoke_test:
+  - --version
 metadata:
   description: Real OpenClaw runtime image built from the official npm package and upstream project.
   category: platform-agent

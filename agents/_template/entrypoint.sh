@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source /opt/agent/lib/common.sh
+source /opt/agent/agenthub.sh
 
 export CHANGE_ME_HOME="${CHANGE_ME_HOME:-/home/agent/.change-me}"
 mkdir -p "$CHANGE_ME_HOME"

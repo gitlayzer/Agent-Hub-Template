@@ -1,4 +1,0 @@
-bases:
-  - name: ubuntu
-    path: base/ubuntu
-    enabled: true

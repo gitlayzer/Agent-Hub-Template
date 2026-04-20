@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import stat
 import sys
 from pathlib import Path
@@ -12,32 +11,23 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_FILES = {
     "agents": ROOT / "registry/agents.yaml",
-    "bases": ROOT / "registry/bases.yaml",
 }
 REQUIRED_DIRECTORIES = [
     ROOT / "agents/_template",
-    ROOT / "shared/scripts",
     ROOT / "scripts",
 ]
 AGENT_REQUIRED_FILES = [
-    "agent.yaml",
+    "index.yaml",
     "Dockerfile",
     "install.sh",
     "entrypoint.sh",
-    "healthcheck.sh",
-    "tests/smoke.sh",
+    "agenthub.sh",
     "README.md",
 ]
 AGENT_EXECUTABLES = [
     "install.sh",
     "entrypoint.sh",
-    "healthcheck.sh",
-    "tests/smoke.sh",
-]
-BASE_REQUIRED_FILES = [
-    "base.yaml",
-    "Dockerfile",
-    "README.md",
+    "agenthub.sh",
 ]
 PLACEHOLDER_TOKENS = ("change-me", "replace-me")
 
@@ -46,8 +36,36 @@ class ParseError(RuntimeError):
     pass
 
 
+def strip_inline_comment(value: str) -> str:
+    quote: str | None = None
+    escaped = False
+    result: list[str] = []
+
+    for char in value:
+        if escaped:
+            result.append(char)
+            escaped = False
+            continue
+        if char == "\\" and quote is not None:
+            result.append(char)
+            escaped = True
+            continue
+        if char in {"'", '"'}:
+            if quote == char:
+                quote = None
+            elif quote is None:
+                quote = char
+            result.append(char)
+            continue
+        if char == "#" and quote is None:
+            break
+        result.append(char)
+
+    return "".join(result).rstrip()
+
+
 def strip_quotes(value: str) -> str:
-    value = value.strip()
+    value = strip_inline_comment(value.strip())
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
         return value[1:-1]
     return value
@@ -167,7 +185,18 @@ def ensure_list(value: Any, context: str) -> list[Any]:
     return value
 
 
+def normalize_bool(value: Any, default: bool = True) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() == "true"
+
+
 def load_registry(kind: str) -> list[dict[str, Any]]:
+    if kind == "bases":
+        return []
+
     path = REGISTRY_FILES[kind]
     data = ensure_dict(read_yaml(path), path.name)
     items = ensure_list(data.get(kind), f"{path.name}:{kind}")
@@ -179,13 +208,16 @@ def load_registry(kind: str) -> list[dict[str, Any]]:
             {
                 "name": str(item.get("name", "")).strip(),
                 "path": str(item.get("path", "")).strip(),
-                "enabled": bool(item.get("enabled", True)),
+                "enabled": normalize_bool(item.get("enabled"), True),
             }
         )
     return normalized
 
 
 def write_registry(kind: str, entries: list[dict[str, Any]]) -> None:
+    if kind == "bases":
+        return
+
     path = REGISTRY_FILES[kind]
     lines = [f"{kind}:"]
     for entry in entries:
@@ -196,13 +228,16 @@ def write_registry(kind: str, entries: list[dict[str, Any]]) -> None:
 
 
 def set_registry_enabled(kind: str, name: str, enabled: bool) -> dict[str, Any]:
+    if kind == "bases":
+        raise SystemExit("Base registry has been removed")
+
     entries = load_registry(kind)
     for entry in entries:
         if entry["name"] == name:
             entry["enabled"] = enabled
             write_registry(kind, entries)
             return entry
-    raise SystemExit(f"Unknown {kind[:-1]} in registry/{kind}.yaml: {name}")
+    raise SystemExit(f"Unknown agent in registry/agents.yaml: {name}")
 
 
 def load_agent_meta(agent_name: str) -> dict[str, Any]:
@@ -210,38 +245,25 @@ def load_agent_meta(agent_name: str) -> dict[str, Any]:
     if not registry_entry:
         raise SystemExit(f"Unknown agent in registry/agents.yaml: {agent_name}")
 
-    meta_path = ROOT / registry_entry["path"] / "agent.yaml"
+    meta_path = ROOT / registry_entry["path"] / "index.yaml"
     data = ensure_dict(read_yaml(meta_path), str(meta_path.relative_to(ROOT)))
     image = ensure_dict(data.get("image", {}), f"{meta_path.name}:image")
     build = ensure_dict(data.get("build", {}), f"{meta_path.name}:build") if data.get("build") is not None else {}
     build_args = ensure_dict(build.get("args", {}), f"{meta_path.name}:build.args") if build.get("args") is not None else {}
 
+    smoke_test = data.get("smoke_test", [])
+    if smoke_test is None:
+        smoke_test = []
+    smoke_args = ensure_list(smoke_test, f"{meta_path.name}:smoke_test")
+
     return {
         "registry": registry_entry,
         "meta_path": str(meta_path.relative_to(ROOT)),
         "name": str(data.get("name", "")).strip(),
-        "base": str(data.get("base", "")).strip(),
         "image_repository": str(image.get("repository", "")).strip(),
         "image_tag": str(image.get("tag", "")).strip(),
         "build_args": {str(k): "" if v is None else str(v) for k, v in build_args.items()},
-        "raw": data,
-    }
-
-
-def load_base_meta(base_name: str) -> dict[str, Any]:
-    registry_entry = next((item for item in load_registry("bases") if item["name"] == base_name), None)
-    if not registry_entry:
-        raise SystemExit(f"Unknown base in registry/bases.yaml: {base_name}")
-
-    meta_path = ROOT / registry_entry["path"] / "base.yaml"
-    data = ensure_dict(read_yaml(meta_path), str(meta_path.relative_to(ROOT)))
-    image = ensure_dict(data.get("image", {}), f"{meta_path.name}:image")
-    return {
-        "registry": registry_entry,
-        "meta_path": str(meta_path.relative_to(ROOT)),
-        "name": str(data.get("name", "")).strip(),
-        "image_repository": str(image.get("repository", "")).strip(),
-        "image_tag": str(image.get("tag", "")).strip(),
+        "smoke_args": [str(item) for item in smoke_args],
         "raw": data,
     }
 
@@ -252,49 +274,27 @@ def shell_lines_for_agent(agent_name: str) -> list[str]:
         f"META\tREGISTRY_PATH\t{meta['registry']['path']}",
         f"META\tENABLED\t{str(meta['registry']['enabled']).lower()}",
         f"META\tNAME\t{meta['name']}",
-        f"META\tBASE_NAME\t{meta['base']}",
         f"META\tREPOSITORY\t{meta['image_repository']}",
         f"META\tDEFAULT_TAG\t{meta['image_tag']}",
     ]
     for key, value in meta["build_args"].items():
         lines.append(f"BUILD_ARG\t{key}\t{value}")
+    for value in meta["smoke_args"]:
+        lines.append(f"SMOKE_ARG\tARG\t{value}")
     return lines
 
 
-def shell_lines_for_base(base_name: str) -> list[str]:
-    meta = load_base_meta(base_name)
-    return [
-        f"META\tREGISTRY_PATH\t{meta['registry']['path']}",
-        f"META\tENABLED\t{str(meta['registry']['enabled']).lower()}",
-        f"META\tNAME\t{meta['name']}",
-        f"META\tREPOSITORY\t{meta['image_repository']}",
-        f"META\tDEFAULT_TAG\t{meta['image_tag']}",
-    ]
-
-
 def matrix_for(kind: str, enabled_only: bool) -> dict[str, list[dict[str, Any]]]:
+    if kind == "bases":
+        return {"include": []}
+
     entries = load_registry(kind)
     if enabled_only:
         entries = [entry for entry in entries if entry["enabled"]]
 
-    if kind == "agents":
-        include = []
-        for entry in entries:
-            meta = load_agent_meta(entry["name"])
-            include.append(
-                {
-                    "name": entry["name"],
-                    "path": entry["path"],
-                    "enabled": entry["enabled"],
-                    "base": meta["base"],
-                    "image": f"{meta['image_repository']}:{meta['image_tag']}",
-                }
-            )
-        return {"include": include}
-
     include = []
     for entry in entries:
-        meta = load_base_meta(entry["name"])
+        meta = load_agent_meta(entry["name"])
         include.append(
             {
                 "name": entry["name"],
@@ -330,9 +330,9 @@ def is_executable(path: Path) -> bool:
 def validate_repo() -> list[str]:
     errors: list[str] = []
 
-    for registry_file in REGISTRY_FILES.values():
-        if not registry_file.exists():
-            errors.append(f"Missing registry file: {registry_file.relative_to(ROOT)}")
+    registry_file = REGISTRY_FILES["agents"]
+    if not registry_file.exists():
+        errors.append(f"Missing registry file: {registry_file.relative_to(ROOT)}")
 
     for directory in REQUIRED_DIRECTORIES:
         if not directory.exists():
@@ -342,54 +342,27 @@ def validate_repo() -> list[str]:
         return errors
 
     agent_entries = load_registry("agents")
-    base_entries = load_registry("bases")
 
-    def validate_registry_entries(kind: str, entries: list[dict[str, Any]], expected_prefix: str) -> None:
-        seen_names: set[str] = set()
-        seen_paths: set[str] = set()
-        for entry in entries:
-            name = entry["name"]
-            path = entry["path"]
-            if not name:
-                errors.append(f"registry/{kind}.yaml has an entry with empty name")
-            if not path:
-                errors.append(f"registry/{kind}.yaml entry '{name or '<unknown>'}' has empty path")
-            if name in seen_names:
-                errors.append(f"registry/{kind}.yaml has duplicate name: {name}")
-            if path in seen_paths:
-                errors.append(f"registry/{kind}.yaml has duplicate path: {path}")
-            seen_names.add(name)
-            seen_paths.add(path)
-            expected_path = f"{expected_prefix}/{name}"
-            if name and path and path != expected_path:
-                errors.append(
-                    f"registry/{kind}.yaml entry '{name}' should use conventional path '{expected_path}', found '{path}'"
-                )
-
-    validate_registry_entries("agents", agent_entries, "agents")
-    validate_registry_entries("bases", base_entries, "base")
-
-    for entry in base_entries:
-        base_dir = ROOT / entry["path"]
-        if not base_dir.exists():
-            errors.append(f"Missing base path: {entry['path']}")
-            continue
-        for relative in BASE_REQUIRED_FILES:
-            file_path = base_dir / relative
-            if not file_path.exists():
-                errors.append(f"Base '{entry['name']}' is missing required file: {file_path.relative_to(ROOT)}")
-        meta_path = base_dir / "base.yaml"
-        if meta_path.exists():
-            meta = ensure_dict(read_yaml(meta_path), str(meta_path.relative_to(ROOT)))
-            if str(meta.get("name", "")).strip() != entry["name"]:
-                errors.append(
-                    f"Base metadata name mismatch for {entry['name']}: base.yaml says '{meta.get('name', '')}'"
-                )
-            image = meta.get("image")
-            if not isinstance(image, dict) or not image.get("repository") or not image.get("tag"):
-                errors.append(f"Base '{entry['name']}' must define image.repository and image.tag in {meta_path.relative_to(ROOT)}")
-
-    base_names = {entry["name"] for entry in base_entries}
+    seen_names: set[str] = set()
+    seen_paths: set[str] = set()
+    for entry in agent_entries:
+        name = entry["name"]
+        path = entry["path"]
+        if not name:
+            errors.append("registry/agents.yaml has an entry with empty name")
+        if not path:
+            errors.append(f"registry/agents.yaml entry '{name or '<unknown>'}' has empty path")
+        if name in seen_names:
+            errors.append(f"registry/agents.yaml has duplicate name: {name}")
+        if path in seen_paths:
+            errors.append(f"registry/agents.yaml has duplicate path: {path}")
+        seen_names.add(name)
+        seen_paths.add(path)
+        expected_path = f"agents/{name}"
+        if name and path and path != expected_path:
+            errors.append(
+                f"registry/agents.yaml entry '{name}' should use conventional path '{expected_path}', found '{path}'"
+            )
 
     for entry in agent_entries:
         agent_dir = ROOT / entry["path"]
@@ -407,28 +380,32 @@ def validate_repo() -> list[str]:
             if file_path.exists() and not is_executable(file_path):
                 errors.append(f"Agent '{entry['name']}' file must be executable: {file_path.relative_to(ROOT)}")
 
-        meta_path = agent_dir / "agent.yaml"
+        meta_path = agent_dir / "index.yaml"
         if meta_path.exists():
             meta = ensure_dict(read_yaml(meta_path), str(meta_path.relative_to(ROOT)))
             if str(meta.get("name", "")).strip() != entry["name"]:
                 errors.append(
-                    f"Agent metadata name mismatch for {entry['name']}: agent.yaml says '{meta.get('name', '')}'"
+                    f"Agent metadata name mismatch for {entry['name']}: index.yaml says '{meta.get('name', '')}'"
                 )
-            base_name = str(meta.get("base", "")).strip()
-            if not base_name:
-                errors.append(f"Agent '{entry['name']}' must define base in {meta_path.relative_to(ROOT)}")
-            elif base_name not in base_names:
-                errors.append(f"Agent '{entry['name']}' references unknown base '{base_name}'")
             image = meta.get("image")
             if not isinstance(image, dict) or not image.get("repository") or not image.get("tag"):
-                errors.append(f"Agent '{entry['name']}' must define image.repository and image.tag in {meta_path.relative_to(ROOT)}")
+                errors.append(
+                    f"Agent '{entry['name']}' must define image.repository and image.tag in {meta_path.relative_to(ROOT)}"
+                )
             build = meta.get("build")
             if build is not None and not isinstance(build, dict):
                 errors.append(f"Agent '{entry['name']}' has invalid build section in {meta_path.relative_to(ROOT)}")
             elif isinstance(build, dict):
                 build_args = build.get("args")
                 if build_args is not None and not isinstance(build_args, dict):
-                    errors.append(f"Agent '{entry['name']}' build.args must be a mapping in {meta_path.relative_to(ROOT)}")
+                    errors.append(
+                        f"Agent '{entry['name']}' build.args must be a mapping in {meta_path.relative_to(ROOT)}"
+                    )
+            smoke_test = meta.get("smoke_test")
+            if smoke_test is not None and not isinstance(smoke_test, list):
+                errors.append(
+                    f"Agent '{entry['name']}' smoke_test must be a list in {meta_path.relative_to(ROOT)}"
+                )
 
         if entry["name"] != "_template":
             errors.extend(find_placeholders(agent_dir))
@@ -454,10 +431,6 @@ def main() -> None:
     show_agent = subparsers.add_parser("show-agent", help="Show merged agent metadata")
     show_agent.add_argument("name")
     show_agent.add_argument("--format", choices=("json", "shell"), default="json")
-
-    show_base = subparsers.add_parser("show-base", help="Show merged base metadata")
-    show_base.add_argument("name")
-    show_base.add_argument("--format", choices=("json", "shell"), default="json")
 
     matrix = subparsers.add_parser("matrix", help="Generate build matrix JSON")
     matrix.add_argument("kind", choices=("agents", "bases"))
@@ -488,14 +461,6 @@ def main() -> None:
         meta = load_agent_meta(args.name)
         if args.format == "shell":
             print_shell(shell_lines_for_agent(args.name))
-            return
-        print(json.dumps(meta))
-        return
-
-    if args.command == "show-base":
-        meta = load_base_meta(args.name)
-        if args.format == "shell":
-            print_shell(shell_lines_for_base(args.name))
             return
         print(json.dumps(meta))
         return

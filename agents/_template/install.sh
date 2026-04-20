@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y --no-install-recommends ca-certificates
+rm -rf /var/lib/apt/lists/*
+
 mkdir -p /opt/agent/lib /opt/change-me/bin /opt/change-me/etc
 
 cat >/opt/change-me/bin/change-me-run <<'EOF'

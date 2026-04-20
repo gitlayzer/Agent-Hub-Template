@@ -6,18 +6,17 @@ This directory is the scaffold for a new agent image.
 
 Before you try to build it, update at least:
 
-- `agent.yaml`
+- `index.yaml`
 - `Dockerfile`
 - `install.sh`
+- `agenthub.sh`
 - `entrypoint.sh`
-- `healthcheck.sh`
-- `tests/smoke.sh`
 - `README.md`
 
 Quick checklist:
 
 - Replace placeholder metadata such as `replace-me`
-- Put build defaults in `agent.yaml -> build.args`
+- Put build defaults in `index.yaml -> build.args`
 - Keep all agent-specific logic inside this directory
 - Leave `enabled: false` in `registry/agents.yaml` until the image really builds and passes smoke tests
 - Run `make validate`, `make build-agent AGENT=change-me`, and `make test-agent AGENT=change-me`

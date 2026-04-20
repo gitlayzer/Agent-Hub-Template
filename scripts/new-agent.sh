@@ -41,9 +41,9 @@ Registered ${AGENT} in registry/agents.yaml with enabled: false
 
 Next steps:
   1. Read docs/adding-a-new-agent.md
-  2. Update ${TARGET}/agent.yaml
+  2. Update ${TARGET}/index.yaml
   3. Implement ${TARGET}/install.sh
-  4. Update ${TARGET}/Dockerfile, entrypoint.sh, healthcheck.sh, tests/smoke.sh
+  4. Update ${TARGET}/Dockerfile, agenthub.sh, and entrypoint.sh
   5. Run: make validate
   6. Run: make build-agent AGENT=${AGENT}
   7. Run: make test-agent AGENT=${AGENT}

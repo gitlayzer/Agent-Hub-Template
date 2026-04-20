@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source /opt/agent/lib/common.sh
+source /opt/agent/agenthub.sh
 
 export HERMES_HOME="${HERMES_HOME:-/home/agent/.hermes}"
 export PATH="/opt/hermes/venv/bin:${PATH}"

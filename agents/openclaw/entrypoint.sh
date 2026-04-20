@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source /opt/agent/lib/common.sh
+source /opt/agent/agenthub.sh
 
 export PATH="/opt/openclaw/bin:/opt/node/bin:${PATH}"
 export OPENCLAW_CONFIG_DIR="${OPENCLAW_CONFIG_DIR:-/home/agent/.config/openclaw}"

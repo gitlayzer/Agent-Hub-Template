@@ -7,6 +7,15 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+apt-get update
+apt-get install -y --no-install-recommends \
+  ca-certificates \
+  git \
+  python3 \
+  python3-pip \
+  python3-venv
+rm -rf /var/lib/apt/lists/*
+
 mkdir -p /opt/agent/lib /opt/hermes /workspace /home/agent/.hermes
 
 python3 -m venv /opt/hermes/venv

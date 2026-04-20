@@ -4,6 +4,16 @@ set -euo pipefail
 : "${OPENCLAW_VERSION:?OPENCLAW_VERSION is required}"
 : "${NODE_VERSION:?NODE_VERSION is required}"
 
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y --no-install-recommends \
+  ca-certificates \
+  curl \
+  git \
+  xz-utils
+rm -rf /var/lib/apt/lists/*
+
 TARGETARCH="${TARGETARCH:-$(dpkg --print-architecture)}"
 case "$TARGETARCH" in
   amd64|x86_64)

@@ -1,13 +1,11 @@
 SHELL := /bin/bash
 
-BASE ?= ubuntu
 AGENT ?= hermes
 
 .PHONY: help build-base build-agent build-all validate new-agent test-agent test-all enable-agent disable-agent list-agents status-agents doctor
 
 help:
 	@echo "Targets:"
-	@echo "  make build-base BASE=ubuntu"
 	@echo "  make build-agent AGENT=hermes"
 	@echo "  make build-all"
 	@echo "  make validate"
@@ -21,7 +19,7 @@ help:
 	@echo "  make doctor"
 
 build-base:
-	./scripts/build-base.sh $(BASE)
+	./scripts/build-base.sh
 
 build-agent:
 	./scripts/build-agent.sh $(AGENT)
