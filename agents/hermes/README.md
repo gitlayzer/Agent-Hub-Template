@@ -2,12 +2,6 @@
 
 This image installs the real Hermes Agent from the official NousResearch/hermes-agent source repository.
 
-Build:
-
-```bash
-make build-agent AGENT=hermes
-```
-
 Run interactive CLI:
 
 ```bash

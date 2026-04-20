@@ -19,10 +19,9 @@ Quick checklist:
 - Put build defaults in `index.yaml -> build.args`
 - Keep all agent-specific logic inside this directory
 - Leave `enabled: false` in `registry/agents.yaml` until the image really builds and passes smoke tests
-- Run `make validate`, `make build-agent AGENT=change-me`, and `make test-agent AGENT=change-me`
 
 Important:
 
 - Replace the placeholder installation logic with the real upstream agent runtime.
-- Do not leave the generated agent enabled in CI until the image builds and the smoke test passes.
-- Keep agent-specific logic inside the agent directory. Move only shared logic into `shared/`.
+- Do not leave the generated agent enabled until the image builds and the smoke test passes.
+- Keep agent-specific logic inside the agent directory.
