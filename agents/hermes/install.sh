@@ -1,37 +1,79 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-install_agent() {
-  local hermes_git_url="https://github.com/NousResearch/hermes-agent.git"
-  local hermes_ref="v2026.4.13"
-  local hermes_extras="cron,cli,pty,mcp,acp,web"
+HERMES_GIT_URL="${HERMES_GIT_URL:-https://github.com/NousResearch/hermes-agent.git}"
+HERMES_REF="${HERMES_REF:-v2026.4.16}"
+HERMES_HOME="${HERMES_HOME:-/home/agent/.hermes}"
+HERMES_SRC="${HERMES_SRC:-/opt/hermes/src}"
+HERMES_VENV="${HERMES_VENV:-/opt/hermes/venv}"
+UV_BIN="${UV_BIN:-/root/.local/bin/uv}"
+UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-/opt/uv/python}"
 
+log() {
+  printf '[%s] [INFO] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"
+}
+
+fail() {
+  printf '[%s] [ERROR] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2
+  exit 1
+}
+
+prepare_install_env() {
   export DEBIAN_FRONTEND=noninteractive
+}
 
+install_system_packages() {
   apt-get update
   apt-get install -y --no-install-recommends \
     ca-certificates \
+    curl \
+    ffmpeg \
     git \
-    python3 \
-    python3-pip \
-    python3-venv
+    ripgrep
   rm -rf /var/lib/apt/lists/*
+}
 
-  mkdir -p /opt/agent/lib /opt/hermes /workspace /home/agent/.hermes
+install_uv() {
+  if [[ -x "$UV_BIN" ]]; then
+    return
+  fi
 
-  python3 -m venv /opt/hermes/venv
-  source /opt/hermes/venv/bin/activate
+  log "installing uv"
+  curl -LsSf https://astral.sh/uv/install.sh | sh
 
-  python -m pip install --upgrade pip setuptools wheel
+  if [[ ! -x "$UV_BIN" ]]; then
+    fail "uv was not installed successfully"
+  fi
+}
 
-  git clone --depth 1 --branch "$hermes_ref" "$hermes_git_url" /opt/hermes/src
-  cd /opt/hermes/src
+checkout_hermes_source() {
+  rm -rf "$HERMES_SRC"
+  git clone --depth 1 --branch "$HERMES_REF" "$HERMES_GIT_URL" "$HERMES_SRC"
+}
 
-  python -m pip install --no-cache-dir ".[${hermes_extras}]"
+install_hermes_runtime() {
+  mkdir -p /opt/hermes /workspace "$HERMES_HOME" "$UV_PYTHON_INSTALL_DIR"
+  cd "$HERMES_SRC"
 
-  mkdir -p /home/agent/.hermes
-  if [[ ! -f /home/agent/.hermes/config.yaml ]]; then
-    cat >/home/agent/.hermes/config.yaml <<'EOF'
+  UV_PYTHON_INSTALL_DIR="$UV_PYTHON_INSTALL_DIR" "$UV_BIN" venv "$HERMES_VENV" --python 3.11
+
+  if [[ -f "uv.lock" ]]; then
+    log "installing Hermes with uv.lock"
+    UV_PYTHON_INSTALL_DIR="$UV_PYTHON_INSTALL_DIR" UV_PROJECT_ENVIRONMENT="$HERMES_VENV" "$UV_BIN" sync --all-extras --locked || \
+      UV_PYTHON_INSTALL_DIR="$UV_PYTHON_INSTALL_DIR" UV_PROJECT_ENVIRONMENT="$HERMES_VENV" "$UV_BIN" pip install -e ".[all]" || \
+      UV_PYTHON_INSTALL_DIR="$UV_PYTHON_INSTALL_DIR" UV_PROJECT_ENVIRONMENT="$HERMES_VENV" "$UV_BIN" pip install -e "."
+  else
+    log "installing Hermes with uv pip"
+    UV_PYTHON_INSTALL_DIR="$UV_PYTHON_INSTALL_DIR" UV_PROJECT_ENVIRONMENT="$HERMES_VENV" "$UV_BIN" pip install -e ".[all]" || \
+      UV_PYTHON_INSTALL_DIR="$UV_PYTHON_INSTALL_DIR" UV_PROJECT_ENVIRONMENT="$HERMES_VENV" "$UV_BIN" pip install -e "."
+  fi
+}
+
+write_default_config() {
+  mkdir -p "$HERMES_HOME"
+
+  if [[ ! -f "${HERMES_HOME}/config.yaml" ]]; then
+    cat >"${HERMES_HOME}/config.yaml" <<'EOF'
 model: gpt-5.4
 provider: custom
 display:
@@ -41,13 +83,26 @@ terminal:
 EOF
   fi
 
-  if [[ ! -f /home/agent/.hermes/.env ]]; then
-    cat >/home/agent/.hermes/.env <<'EOF'
+  if [[ ! -f "${HERMES_HOME}/.env" ]]; then
+    cat >"${HERMES_HOME}/.env" <<'EOF'
 # Populate provider credentials or endpoint configuration before first real use.
 # Example custom endpoint values:
 # OPENAI_API_KEY=
 # OPENAI_BASE_URL=
 EOF
+  fi
+}
+
+install_agent() {
+  prepare_install_env
+  install_system_packages
+  install_uv
+  checkout_hermes_source
+  install_hermes_runtime
+  write_default_config
+
+  if [[ ! -x "${HERMES_VENV}/bin/hermes" ]]; then
+    fail "hermes binary was not installed"
   fi
 }
 

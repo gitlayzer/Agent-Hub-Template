@@ -1,10 +1,10 @@
 {
   "id": "hermes",
-  "icon": "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/docs/logo.png",
+  "icon": "https://github.com/NousResearch/hermes-agent/blob/main/assets/banner.png?raw=true",
   "name": "Hermes",
   "desc": "Terminal-first Hermes runtime image built from upstream source.",
-  "version": "v2026.4.13",
-  "status": "disabled",
+  "version": "v2026.4.16",
+  "status": "enabled",
   "image": "agent-hub/hermes:dev",
   "base_image": "ghcr.io/gitlayzer/ubuntu:22.04-base",
   "category": "platform-agent",

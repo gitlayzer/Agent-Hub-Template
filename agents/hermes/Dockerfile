@@ -7,12 +7,14 @@ ENV HERMES_HOME=/home/agent/.hermes \
 
 COPY agents/hermes/install.sh /tmp/install.sh
 RUN chmod +x /tmp/install.sh \
-    && /tmp/install.sh \
+    && /tmp/install.sh install \
     && rm -f /tmp/install.sh
 
 COPY agents/hermes/config.sh /opt/agent/config.sh
 COPY agents/hermes/entrypoint.sh /opt/agent/entrypoint.sh
-RUN chmod +x /opt/agent/config.sh /opt/agent/entrypoint.sh \
+RUN getent group agent >/dev/null || groupadd --gid 10001 agent \
+    && id -u agent >/dev/null 2>&1 || useradd --uid 10001 --gid 10001 --create-home --shell /bin/bash agent \
+    && chmod +x /opt/agent/config.sh /opt/agent/entrypoint.sh \
     && mkdir -p "$HERMES_HOME" \
     && chown -R agent:agent /opt/agent /opt/hermes /workspace "$HERMES_HOME"
 

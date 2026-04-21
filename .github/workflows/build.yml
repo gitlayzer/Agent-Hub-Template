@@ -1,0 +1,99 @@
+name: build-enabled-agents
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate agent matrix from registry
+        id: matrix
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          registry_path = Path("registry/agents.yaml")
+          items = []
+          current = None
+
+          for raw_line in registry_path.read_text().splitlines():
+              line = raw_line.strip()
+              if not line or line.startswith("#") or line == "agents:":
+                  continue
+              if line.startswith("- "):
+                  if current:
+                      items.append(current)
+                  current = {}
+                  line = line[2:]
+              if ":" not in line:
+                  continue
+              key, value = line.split(":", 1)
+              key = key.strip()
+              value = value.strip()
+              if value.lower() == "true":
+                  parsed = True
+              elif value.lower() == "false":
+                  parsed = False
+              else:
+                  parsed = value.strip("\"'")
+              current[key] = parsed
+
+          if current:
+              items.append(current)
+
+          enabled = [
+              {
+                  "name": item["name"],
+                  "path": item["path"],
+              }
+              for item in items
+              if item.get("enabled") is True
+          ]
+
+          print(f"matrix={json.dumps({'include': enabled}, separators=(',', ':'))}")
+          print(f"count={len(enabled)}")
+          PY
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate agent shell scripts
+        run: |
+          find "${{ matrix.path }}" -type f -name '*.sh' | sort | while IFS= read -r file; do
+            bash -n "$file"
+          done
+
+      - name: Build agent image
+        run: |
+          docker build \
+            --file "${{ matrix.path }}/Dockerfile" \
+            --tag "agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}" \
+            .
+
+      - name: Smoke test image
+        run: |
+          docker run --rm "agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}" version
