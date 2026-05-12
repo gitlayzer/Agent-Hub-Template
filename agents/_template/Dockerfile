@@ -1,9 +1,18 @@
-FROM ghcr.io/gitlayzer/ubuntu:22.04-base
+ARG BASE_PLATFORM=linux/amd64
+FROM --platform=${BASE_PLATFORM} ghcr.io/gitlayzer/ubuntu:22.04-base
 
-ARG AGENT_HOME=/opt/change-me
-ENV AGENT_HOME=${AGENT_HOME} \
-    AGENT_NAME=change-me \
-    AGENT_RUNTIME_KIND=service
+ARG AGENT_NAME=change-me
+ENV AGENT_NAME=${AGENT_NAME} \
+    AGENT_HOME=/opt/agent \
+    AGENT_DATA_DIR=/home/agent/.change-me \
+    AGENT_WORKSPACE=/workspace \
+    AGENT_PORT=8080 \
+    AGENT_LOG_LEVEL=info \
+    PATH=/opt/agent/bin:$PATH
+
+LABEL org.opencontainers.image.title="${AGENT_NAME}" \
+      org.opencontainers.image.description="Agent Hub runtime image" \
+      org.opencontainers.image.source="agents/${AGENT_NAME}"
 
 COPY agents/_template/build.env /tmp/build.env
 COPY agents/_template/install.sh /tmp/install.sh
@@ -14,17 +23,14 @@ RUN chmod +x /tmp/install.sh \
     && /tmp/install.sh install agent \
     && rm -f /tmp/build.env /tmp/install.sh
 
-COPY agents/_template/config.json /opt/agent/config.json
-COPY agents/_template/config.sh /opt/agent/config.sh
 COPY agents/_template/entrypoint.sh /opt/agent/entrypoint.sh
 RUN getent group agent >/dev/null || groupadd --gid 10001 agent \
     && id -u agent >/dev/null 2>&1 || useradd --uid 10001 --gid 10001 --create-home --shell /bin/bash agent \
-    && chmod +x /opt/agent/config.sh /opt/agent/entrypoint.sh \
-    && chmod 0644 /opt/agent/config.json \
-    && mkdir -p /workspace "$AGENT_HOME" /home/agent/.change-me \
-    && chown -R agent:agent /opt/agent "$AGENT_HOME" /workspace /home/agent/.change-me
+    && chmod +x /opt/agent/entrypoint.sh \
+    && mkdir -p "${AGENT_WORKSPACE}" "${AGENT_HOME}" "${AGENT_DATA_DIR}" \
+    && chown -R agent:agent /opt/agent "${AGENT_WORKSPACE}" "${AGENT_DATA_DIR}"
 
-WORKDIR /workspace
-VOLUME ["/workspace"]
+WORKDIR ${AGENT_WORKSPACE}
+VOLUME ["/workspace", "/home/agent/.change-me"]
 ENTRYPOINT ["/init", "/opt/agent/entrypoint.sh"]
 CMD ["start"]

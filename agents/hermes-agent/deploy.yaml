@@ -4,6 +4,8 @@ metadata:
   name: hermes-agent
   labels:
     app: hermes-agent
+    app.kubernetes.io/name: hermes-agent
+    app.kubernetes.io/component: agent
 spec:
   replicas: 1
   selector:
@@ -27,5 +29,38 @@ spec:
               value: "8642"
             - name: API_SERVER_KEY
               value: "change-me-local-dev"
+            - name: AGENT_PORT
+              value: "8642"
+            - name: AGENT_LOG_LEVEL
+              value: "info"
           args: ["start"]
           workingDir: /workspace
+          ports:
+            - name: http
+              containerPort: 8642
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: hermes-data
+              mountPath: /home/agent/.hermes
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: hermes-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-agent
+  labels:
+    app: hermes-agent
+    app.kubernetes.io/name: hermes-agent
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    app: hermes-agent
+  ports:
+    - name: http
+      port: 8642
+      targetPort: http

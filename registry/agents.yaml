@@ -5,3 +5,6 @@ agents:
   - name: openclaw
     path: agents/openclaw
     enabled: true
+  - name: cowagent
+    path: agents/cowagent
+    enabled: true

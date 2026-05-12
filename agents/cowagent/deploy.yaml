@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cowagent
+  labels:
+    app: cowagent
+    app.kubernetes.io/name: cowagent
+    app.kubernetes.io/component: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cowagent
+  template:
+    metadata:
+      labels:
+        app: cowagent
+    spec:
+      containers:
+        - name: cowagent
+          image: ghcr.io/gitlayzer/cowagent:dev
+          imagePullPolicy: IfNotPresent
+          args: ["start"]
+          workingDir: /workspace
+          env:
+            - name: AGENT_PORT
+              value: "9899"
+            - name: AGENT_LOG_LEVEL
+              value: "info"
+            - name: COWAGENT_CHANNEL_TYPE
+              value: "web"
+            - name: COWAGENT_AGENT_WORKSPACE
+              value: /workspace
+            - name: COWAGENT_WEB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cowagent-secrets
+                  key: web-password
+                  optional: true
+            - name: OPEN_AI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cowagent-secrets
+                  key: open-ai-api-key
+                  optional: true
+            - name: OPEN_AI_API_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: cowagent-secrets
+                  key: open-ai-api-base
+                  optional: true
+            - name: DEEPSEEK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cowagent-secrets
+                  key: deepseek-api-key
+                  optional: true
+          ports:
+            - name: http
+              containerPort: 9899
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: cowagent-data
+              mountPath: /home/agent/.cowagent
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: cowagent-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cowagent
+  labels:
+    app: cowagent
+    app.kubernetes.io/name: cowagent
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    app: cowagent
+  ports:
+    - name: http
+      port: 9899
+      targetPort: http

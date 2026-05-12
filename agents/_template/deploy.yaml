@@ -4,6 +4,8 @@ metadata:
   name: change-me
   labels:
     app: change-me
+    app.kubernetes.io/name: change-me
+    app.kubernetes.io/component: agent
 spec:
   replicas: 1
   selector:
@@ -20,3 +22,39 @@ spec:
           imagePullPolicy: IfNotPresent
           args: ["start"]
           workingDir: /workspace
+          env:
+            - name: AGENT_LOG_LEVEL
+              value: "info"
+            - name: AGENT_DATA_DIR
+              value: /home/agent/.change-me
+            - name: AGENT_PORT
+              value: "8080"
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: agent-data
+              mountPath: /home/agent/.change-me
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: agent-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: change-me
+  labels:
+    app: change-me
+    app.kubernetes.io/name: change-me
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    app: change-me
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
