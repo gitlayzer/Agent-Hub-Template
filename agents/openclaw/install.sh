@@ -4,6 +4,8 @@ set -euo pipefail
 NODE_MAJOR="${NODE_MAJOR:-22}"
 OPENCLAW_VERSION="${OPENCLAW_VERSION:-2026.4.24}"
 AI_AGENT_SWITCH_VERSION="${AI_AGENT_SWITCH_VERSION:-}"
+AI_AGENT_SWITCH_SOURCE_URL="${AI_AGENT_SWITCH_SOURCE_URL:-}"
+AI_AGENT_SWITCH_SOURCE_REF="${AI_AGENT_SWITCH_SOURCE_REF:-}"
 OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-/home/agent/.openclaw}"
 OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH:-${OPENCLAW_STATE_DIR}/openclaw.json}"
 OPENCLAW_WORKSPACE="${OPENCLAW_WORKSPACE:-/workspace}"
@@ -29,6 +31,7 @@ install_system_packages() {
   apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    git \
     gnupg
   rm -rf /var/lib/apt/lists/*
 }
@@ -46,11 +49,32 @@ install_openclaw_runtime() {
 
 install_ai_agent_switch() {
   [[ -n "$AI_AGENT_SWITCH_VERSION" ]] || fail "AI_AGENT_SWITCH_VERSION is required"
-  npm install -g "ai-agent-switch@${AI_AGENT_SWITCH_VERSION}"
+  if [[ -n "$AI_AGENT_SWITCH_SOURCE_URL" ]]; then
+    install_ai_agent_switch_from_source
+  else
+    npm install -g "ai-agent-switch@${AI_AGENT_SWITCH_VERSION}"
+  fi
   command -v ai-agent-switch >/dev/null 2>&1 || fail "ai-agent-switch CLI was not installed"
   ai-agent-switch --version >/dev/null 2>&1 || fail "ai-agent-switch CLI is not executable"
   ai-agent-switch client list --json >/dev/null || fail "ai-agent-switch client list failed"
   verify_ai_agent_switch_agent_hub
+}
+
+install_ai_agent_switch_from_source() {
+  local src_dir
+  local package_dir
+  src_dir="$(mktemp -d)"
+  git clone --depth 1 ${AI_AGENT_SWITCH_SOURCE_REF:+--branch "$AI_AGENT_SWITCH_SOURCE_REF"} "$AI_AGENT_SWITCH_SOURCE_URL" "$src_dir"
+  (
+    cd "$src_dir"
+    npm install -g bun
+    bun install --frozen-lockfile
+    bun run npm:build-package -- --platform linux-x64 --out-dir dist/npm-packages --version "$AI_AGENT_SWITCH_VERSION"
+  )
+  package_dir="$src_dir/dist/npm-packages/ai-agent-switch-linux-x64"
+  [[ -x "$package_dir/ai-agent-switch" ]] || fail "ai-agent-switch source binary was not built"
+  install -m 0755 "$package_dir/ai-agent-switch" /usr/local/bin/ai-agent-switch
+  rm -rf "$src_dir"
 }
 
 verify_ai_agent_switch_agent_hub() {

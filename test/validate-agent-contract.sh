@@ -217,6 +217,12 @@ for agent_dir in "${agents[@]}"; do
       fail "$agent_dir/install.sh must require AI_AGENT_SWITCH_VERSION"
     grep -F 'npm install -g "ai-agent-switch@${AI_AGENT_SWITCH_VERSION}"' "$agent_dir/install.sh" >/dev/null || \
       fail "$agent_dir/install.sh must install ai-agent-switch from AI_AGENT_SWITCH_VERSION"
+    grep -F 'AI_AGENT_SWITCH_SOURCE_URL' "$agent_dir/install.sh" >/dev/null || \
+      fail "$agent_dir/install.sh must support explicit ai-agent-switch source builds"
+    grep -F 'install_ai_agent_switch_from_source' "$agent_dir/install.sh" >/dev/null || \
+      fail "$agent_dir/install.sh must build ai-agent-switch from explicit source when requested"
+    grep -F 'bun run npm:build-package -- --platform linux-x64' "$agent_dir/install.sh" >/dev/null || \
+      fail "$agent_dir/install.sh must build the linux ai-agent-switch package from source"
     grep -F 'ai-agent-switch client list --json' "$agent_dir/install.sh" >/dev/null || \
       fail "$agent_dir/install.sh must verify ai-agent-switch client list"
     grep -F 'verify_ai_agent_switch_agent_hub' "$agent_dir/install.sh" >/dev/null || \

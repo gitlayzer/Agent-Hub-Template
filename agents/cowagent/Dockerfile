@@ -2,6 +2,8 @@ ARG BASE_PLATFORM=linux/amd64
 FROM --platform=${BASE_PLATFORM} ghcr.io/gitlayzer/ubuntu:22.04-base
 
 ARG AI_AGENT_SWITCH_VERSION
+ARG AI_AGENT_SWITCH_SOURCE_URL
+ARG AI_AGENT_SWITCH_SOURCE_REF
 
 ENV AGENT_NAME=cowagent \
     AGENT_HOME=/opt/agent \
@@ -28,6 +30,8 @@ RUN chmod +x /tmp/install.sh \
     && . /tmp/build.env \
     && set +a \
     && export AI_AGENT_SWITCH_VERSION="${AI_AGENT_SWITCH_VERSION}" \
+    && export AI_AGENT_SWITCH_SOURCE_URL="${AI_AGENT_SWITCH_SOURCE_URL}" \
+    && export AI_AGENT_SWITCH_SOURCE_REF="${AI_AGENT_SWITCH_SOURCE_REF}" \
     && /tmp/install.sh install agent \
     && rm -f /tmp/build.env \
     && rm -f /tmp/install.sh

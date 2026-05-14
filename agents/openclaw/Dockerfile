@@ -10,6 +10,8 @@ ARG ALL_PROXY
 ARG no_proxy
 ARG NO_PROXY
 ARG AI_AGENT_SWITCH_VERSION
+ARG AI_AGENT_SWITCH_SOURCE_URL
+ARG AI_AGENT_SWITCH_SOURCE_REF
 
 ENV AGENT_NAME=openclaw \
     AGENT_HOME=/opt/agent \
@@ -37,6 +39,8 @@ RUN chmod +x /tmp/install.sh \
     && . /tmp/build.env \
     && set +a \
     && export AI_AGENT_SWITCH_VERSION="${AI_AGENT_SWITCH_VERSION}" \
+    && export AI_AGENT_SWITCH_SOURCE_URL="${AI_AGENT_SWITCH_SOURCE_URL}" \
+    && export AI_AGENT_SWITCH_SOURCE_REF="${AI_AGENT_SWITCH_SOURCE_REF}" \
     && /tmp/install.sh install \
     && rm -f /tmp/build.env /tmp/install.sh
 

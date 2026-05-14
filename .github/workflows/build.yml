@@ -20,6 +20,8 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       count: ${{ steps.matrix.outputs.count }}
       ai-agent-switch-version: ${{ steps.ai-agent-switch.outputs.version }}
+      ai-agent-switch-source-url: ${{ steps.ai-agent-switch.outputs.source-url }}
+      ai-agent-switch-source-ref: ${{ steps.ai-agent-switch.outputs.source-ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,6 +40,12 @@ jobs:
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "source-url=https://github.com/sealos-apps/ai-agent-switch.git" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "source-ref=codex/agent-hub-init-model" >> "$GITHUB_OUTPUT"
+          else
+            echo "source-ref=main" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Generate agent matrix
         id: matrix
@@ -185,6 +193,8 @@ jobs:
         run: |
           docker build \
             --build-arg "AI_AGENT_SWITCH_VERSION=${{ needs.prepare.outputs.ai-agent-switch-version }}" \
+            --build-arg "AI_AGENT_SWITCH_SOURCE_URL=${{ needs.prepare.outputs.ai-agent-switch-source-url }}" \
+            --build-arg "AI_AGENT_SWITCH_SOURCE_REF=${{ needs.prepare.outputs.ai-agent-switch-source-ref }}" \
             --file "${{ matrix.path }}/Dockerfile" \
             --tag "agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}" \
             .
