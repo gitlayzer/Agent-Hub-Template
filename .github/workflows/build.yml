@@ -204,13 +204,26 @@ jobs:
           image="agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}"
           expected="${{ needs.prepare.outputs.ai-agent-switch-version }}"
           case "${{ matrix.name }}" in
-            hermes-agent) verify_client="hermes" ;;
-            *) verify_client="${{ matrix.name }}" ;;
+            cowagent)
+              verify_client="cowagent"
+              verify_api_key_env="OPEN_AI_API_KEY"
+              ;;
+            hermes-agent)
+              verify_client="hermes"
+              verify_api_key_env="AIPROXY_API_KEY"
+              ;;
+            *)
+              verify_client="${{ matrix.name }}"
+              verify_api_key_env="AIPROXY_API_KEY"
+              ;;
           esac
           docker run --rm "$image" ai-agent-switch --version | grep -F "ai-agent-switch/${expected}"
           docker run --rm "$image" ai-agent-switch client list --json >/dev/null
           output="$(
-            docker run --rm -e "VERIFY_CLIENT=${verify_client}" "$image" bash -lc '
+            docker run --rm \
+              -e "VERIFY_CLIENT=${verify_client}" \
+              -e "VERIFY_API_KEY_ENV=${verify_api_key_env}" \
+              "$image" bash -lc '
               set -euo pipefail
               verify_home="$(mktemp -d)"
               trap "rm -rf \"$verify_home\"" EXIT
@@ -220,7 +233,7 @@ jobs:
                 --provider-name Verify \
                 --model-type openai-chat-compatible \
                 --base-url http://127.0.0.1:1/v1 \
-                --api-key-env AIPROXY_API_KEY \
+                --api-key-env "$VERIFY_API_KEY_ENV" \
                 --model verify-model \
                 --available-model verify-model \
                 --json
