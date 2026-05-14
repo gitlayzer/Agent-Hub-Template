@@ -5,12 +5,26 @@ IMAGE="${IMAGE:-agent-hub/openclaw:local}"
 CONTAINER="${CONTAINER:-openclaw-smoke-$RANDOM}"
 HOST_PORT="${HOST_PORT:-28789}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
-AI_AGENT_SWITCH_VERSION="${AI_AGENT_SWITCH_VERSION:-$(npm view ai-agent-switch version)}"
 
 fail() {
   printf '[ERROR] %s\n' "$*" >&2
   exit 1
 }
+
+resolve_ai_agent_switch_version() {
+  if [[ -n "${AI_AGENT_SWITCH_VERSION:-}" ]]; then
+    printf '%s' "$AI_AGENT_SWITCH_VERSION"
+    return
+  fi
+
+  command -v npm >/dev/null 2>&1 || \
+    fail "AI_AGENT_SWITCH_VERSION is required when npm is not available"
+
+  npm view ai-agent-switch version || \
+    fail "failed to resolve AI_AGENT_SWITCH_VERSION from npm"
+}
+
+AI_AGENT_SWITCH_VERSION="$(resolve_ai_agent_switch_version)"
 
 rewrite_proxy_for_docker() {
   local value="${1:-}"

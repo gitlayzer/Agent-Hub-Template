@@ -6,6 +6,7 @@
 - `python3` + `PyYAML` 或 `ruby`: 用于 `deploy.yaml` 语法校验。
 - `docker`: 用于构建和运行 Hermes/OpenClaw smoke 镜像。
 - `curl`: 用于 gateway 和 ccswitch HTTP 检查。
+- `npm`: smoke 脚本默认用它解析最新 `ai-agent-switch` 版本；也可以显式传入 `AI_AGENT_SWITCH_VERSION`。
 - `ccswitch-smoke.sh` 还需要本机 ccswitch 监听 `127.0.0.1:15721`。
 
 如果本机没有 PyYAML，脚本会自动回退到 Ruby；两者都没有时，契约校验会明确失败。

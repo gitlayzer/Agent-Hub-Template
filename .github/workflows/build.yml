@@ -192,9 +192,9 @@ jobs:
       - name: Build agent image
         run: |
           docker build \
-            --build-arg "AI_AGENT_SWITCH_VERSION=${{ needs.prepare.outputs.ai-agent-switch-version }}" \
-            --build-arg "AI_AGENT_SWITCH_SOURCE_URL=${{ needs.prepare.outputs.ai-agent-switch-source-url }}" \
-            --build-arg "AI_AGENT_SWITCH_SOURCE_REF=${{ needs.prepare.outputs.ai-agent-switch-source-ref }}" \
+            --build-arg "AI_AGENT_SWITCH_VERSION=${{ needs.prepare.outputs['ai-agent-switch-version'] }}" \
+            --build-arg "AI_AGENT_SWITCH_SOURCE_URL=${{ needs.prepare.outputs['ai-agent-switch-source-url'] }}" \
+            --build-arg "AI_AGENT_SWITCH_SOURCE_REF=${{ needs.prepare.outputs['ai-agent-switch-source-ref'] }}" \
             --file "${{ matrix.path }}/Dockerfile" \
             --tag "agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}" \
             .
@@ -202,7 +202,7 @@ jobs:
       - name: Verify ai-agent-switch CLI
         run: |
           image="agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}"
-          expected="${{ needs.prepare.outputs.ai-agent-switch-version }}"
+          expected="${{ needs.prepare.outputs['ai-agent-switch-version'] }}"
           case "${{ matrix.name }}" in
             cowagent)
               verify_client="cowagent"

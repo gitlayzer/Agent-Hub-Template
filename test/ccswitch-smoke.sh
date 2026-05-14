@@ -9,7 +9,6 @@ HERMES_HOST_PORT="${HERMES_HOST_PORT:-$((28600 + RANDOM % 500))}"
 OPENCLAW_HOST_PORT="${OPENCLAW_HOST_PORT:-$((28700 + RANDOM % 500))}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 BUILD_IMAGES="${BUILD_IMAGES:-1}"
-AI_AGENT_SWITCH_VERSION="${AI_AGENT_SWITCH_VERSION:-$(npm view ai-agent-switch version)}"
 CCSWITCH_DIRECT_BASE_URL="${CCSWITCH_DIRECT_BASE_URL:-http://127.0.0.1:15721/v1}"
 CCSWITCH_CONTAINER_BASE_URL="${CCSWITCH_CONTAINER_BASE_URL:-http://host.docker.internal:15721/v1}"
 CCSWITCH_API_KEY="${CCSWITCH_API_KEY:-sk-local-smoke}"
@@ -20,6 +19,21 @@ fail() {
   printf '[ERROR] %s\n' "$*" >&2
   exit 1
 }
+
+resolve_ai_agent_switch_version() {
+  if [[ -n "${AI_AGENT_SWITCH_VERSION:-}" ]]; then
+    printf '%s' "$AI_AGENT_SWITCH_VERSION"
+    return
+  fi
+
+  command -v npm >/dev/null 2>&1 || \
+    fail "AI_AGENT_SWITCH_VERSION is required when npm is not available"
+
+  npm view ai-agent-switch version || \
+    fail "failed to resolve AI_AGENT_SWITCH_VERSION from npm"
+}
+
+AI_AGENT_SWITCH_VERSION="$(resolve_ai_agent_switch_version)"
 
 rewrite_proxy_for_docker() {
   local value="${1:-}"
