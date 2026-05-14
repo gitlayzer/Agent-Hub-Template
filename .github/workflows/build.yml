@@ -19,6 +19,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       count: ${{ steps.matrix.outputs.count }}
+      ai-agent-switch-version: ${{ steps.ai-agent-switch.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,6 +28,16 @@ jobs:
 
       - name: Validate agent contracts
         run: bash test/validate-agent-contract.sh
+
+      - name: Resolve ai-agent-switch version
+        id: ai-agent-switch
+        run: |
+          version="$(npm view ai-agent-switch version)"
+          if [ -z "$version" ]; then
+            echo "failed to resolve ai-agent-switch version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Generate agent matrix
         id: matrix
@@ -173,6 +184,38 @@ jobs:
       - name: Build agent image
         run: |
           docker build \
+            --build-arg "AI_AGENT_SWITCH_VERSION=${{ needs.prepare.outputs.ai-agent-switch-version }}" \
             --file "${{ matrix.path }}/Dockerfile" \
             --tag "agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}" \
             .
+
+      - name: Verify ai-agent-switch CLI
+        run: |
+          image="agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}"
+          expected="${{ needs.prepare.outputs.ai-agent-switch-version }}"
+          case "${{ matrix.name }}" in
+            hermes-agent) verify_client="hermes" ;;
+            *) verify_client="${{ matrix.name }}" ;;
+          esac
+          docker run --rm "$image" ai-agent-switch --version | grep -F "ai-agent-switch/${expected}"
+          docker run --rm "$image" ai-agent-switch client list --json >/dev/null
+          output="$(
+            docker run --rm -e "VERIFY_CLIENT=${verify_client}" "$image" bash -lc '
+              set -euo pipefail
+              verify_home="$(mktemp -d)"
+              trap "rm -rf \"$verify_home\"" EXIT
+              HOME="$verify_home" ai-agent-switch agent-hub init \
+                --client "$VERIFY_CLIENT" \
+                --provider-id verify-aiproxy \
+                --provider-name Verify \
+                --model-type openai-chat-compatible \
+                --base-url http://127.0.0.1:1/v1 \
+                --api-key-env AIPROXY_API_KEY \
+                --model verify-model \
+                --available-model verify-model \
+                --json
+            '
+          )"
+          printf '%s' "$output" | grep -F '"requiresConfirmation": true' >/dev/null
+          actual="$(docker image inspect "$image" --format '{{ index .Config.Labels "org.sealos.ai-agent-switch.version" }}')"
+          test "$actual" = "$expected"

@@ -35,10 +35,10 @@ bash test/ccswitch-smoke.sh
 
 - 构建镜像
 - 按默认 `start` 启动容器
-- 读取运行态 `/opt/agent/config.json`
-- 通过 `/opt/agent/config.sh` 修改原生配置
-- 校验 `config.sh` stdout 是统一 JSON envelope
-- 校验 secret 读取不返回明文
+- 校验镜像内置的 `ai-agent-switch` CLI
+- 通过 `ai-agent-switch agent-hub init` 初始化原生模型配置
+- 通过 `ai-agent-switch client show <client> --json` 读取当前模型
+- 校验密钥通过环境变量引用，不写入明文 token
 - 校验配置文件已经被写入
 - 校验运行中的 gateway 仍然健康
 - `ccswitch-smoke.sh` 会额外验证 direct ccswitch、Hermes gateway、OpenClaw gateway 三条真实模型调用链路

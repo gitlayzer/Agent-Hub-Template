@@ -3,6 +3,7 @@ set -euo pipefail
 
 NODE_MAJOR="${NODE_MAJOR:-22}"
 OPENCLAW_VERSION="${OPENCLAW_VERSION:-2026.4.24}"
+AI_AGENT_SWITCH_VERSION="${AI_AGENT_SWITCH_VERSION:-}"
 OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-/home/agent/.openclaw}"
 OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH:-${OPENCLAW_STATE_DIR}/openclaw.json}"
 OPENCLAW_WORKSPACE="${OPENCLAW_WORKSPACE:-/workspace}"
@@ -41,6 +42,39 @@ install_node() {
 install_openclaw_runtime() {
   npm install -g "openclaw@${OPENCLAW_VERSION}"
   command -v openclaw >/dev/null 2>&1 || fail "openclaw binary was not installed"
+}
+
+install_ai_agent_switch() {
+  [[ -n "$AI_AGENT_SWITCH_VERSION" ]] || fail "AI_AGENT_SWITCH_VERSION is required"
+  npm install -g "ai-agent-switch@${AI_AGENT_SWITCH_VERSION}"
+  command -v ai-agent-switch >/dev/null 2>&1 || fail "ai-agent-switch CLI was not installed"
+  ai-agent-switch --version >/dev/null 2>&1 || fail "ai-agent-switch CLI is not executable"
+  ai-agent-switch client list --json >/dev/null || fail "ai-agent-switch client list failed"
+  verify_ai_agent_switch_agent_hub
+}
+
+verify_ai_agent_switch_agent_hub() {
+  local verify_home
+  local output
+  verify_home="$(mktemp -d)"
+  output="$(
+    HOME="$verify_home" ai-agent-switch agent-hub init \
+      --client openclaw \
+      --provider-id verify-aiproxy \
+      --provider-name Verify \
+      --model-type openai-chat-compatible \
+      --base-url http://127.0.0.1:1/v1 \
+      --api-key-env AIPROXY_API_KEY \
+      --model verify-model \
+      --available-model verify-model \
+      --json
+  )" || {
+    rm -rf "$verify_home"
+    fail "ai-agent-switch agent-hub init verification failed"
+  }
+  rm -rf "$verify_home"
+  printf '%s' "$output" | grep -F '"requiresConfirmation": true' >/dev/null || \
+    fail "ai-agent-switch agent-hub init did not return the expected dry-run JSON"
 }
 
 write_default_state() {
@@ -113,7 +147,7 @@ if [[ "$#" -eq 0 ]]; then
 fi
 
 case "$1" in
-  openclaw|node|npm|bash|sh)
+  openclaw|ai-agent-switch|node|npm|bash|sh)
     exec "$@"
     ;;
   *)
@@ -130,6 +164,7 @@ install_agent() {
   install_system_packages
   install_node
   install_openclaw_runtime
+  install_ai_agent_switch
   write_default_state
   install_agent_start
 
