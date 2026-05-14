@@ -64,9 +64,12 @@ install_ai_agent_switch_from_source() {
   local src_dir
   local package_dir
   src_dir="$(mktemp -d)"
-  git clone --depth 1 ${AI_AGENT_SWITCH_SOURCE_REF:+--branch "$AI_AGENT_SWITCH_SOURCE_REF"} "$AI_AGENT_SWITCH_SOURCE_URL" "$src_dir"
+  git init "$src_dir"
   (
     cd "$src_dir"
+    git remote add origin "$AI_AGENT_SWITCH_SOURCE_URL"
+    git fetch --depth 1 origin "${AI_AGENT_SWITCH_SOURCE_REF:-HEAD}"
+    git checkout --detach FETCH_HEAD
     npm install -g bun
     bun install --frozen-lockfile
     bun run npm:build-package -- --platform linux-x64 --out-dir dist/npm-packages --version "$AI_AGENT_SWITCH_VERSION"
