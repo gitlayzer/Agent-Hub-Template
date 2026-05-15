@@ -2,7 +2,7 @@
 set -euo pipefail
 
 AGENT_NAME="${AGENT_NAME:-change-me}"
-AGENT_HOME="${AGENT_HOME:-/opt/change-me}"
+AGENT_HOME="${AGENT_HOME:-/opt/agent}"
 
 log() {
   printf '[%s] [INFO] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"
@@ -24,18 +24,24 @@ install_system_packages() {
 }
 
 install_agent_files() {
-  mkdir -p /opt/agent/lib "${AGENT_HOME}/bin" "${AGENT_HOME}/etc"
+  mkdir -p "${AGENT_HOME}/bin" "${AGENT_HOME}/lib" "${AGENT_HOME}/etc"
 
-  cat >"${AGENT_HOME}/bin/change-me-run" <<'EOF'
+  cat >"${AGENT_HOME}/bin/start" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "change-me agent scaffold is not implemented yet."
-echo "Replace this agent's install.sh and install the real agent runtime."
-exit 1
+cat >&2 <<'MSG'
+change-me agent scaffold is not implemented yet.
+
+Replace agents/change-me/install.sh with the real upstream install flow,
+then make sure it writes the real startup command to /opt/agent/bin/start.
+Runtime configuration should come from environment variables, mounted files,
+or Kubernetes Secret/ConfigMap references.
+MSG
+exit 64
 EOF
 
-  chmod +x "${AGENT_HOME}/bin/change-me-run"
+  chmod +x "${AGENT_HOME}/bin/start"
 }
 
 install_agent() {

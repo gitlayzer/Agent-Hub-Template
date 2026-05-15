@@ -7,6 +7,7 @@ HERMES_REF="${HERMES_REF:-59b56d445c34e1d4bf797f5345b802c7b5986c72}"
 HERMES_HOME="${HERMES_HOME:-/home/agent/.hermes}"
 HERMES_SRC="${HERMES_SRC:-/opt/hermes/src}"
 HERMES_VENV="${HERMES_VENV:-/opt/hermes/venv}"
+AGENT_HOME="${AGENT_HOME:-/opt/agent}"
 UV_BIN="${UV_BIN:-/root/.local/bin/uv}"
 UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-/opt/uv/python}"
 
@@ -113,9 +114,43 @@ CFG
 API_SERVER_ENABLED=true
 API_SERVER_HOST=0.0.0.0
 API_SERVER_PORT=8642
-API_SERVER_KEY=change-me-local-dev
+# API_SERVER_KEY is supplied by /opt/agent/bin/start unless overridden at runtime.
 ENVFILE
   fi
+}
+
+install_agent_start() {
+  mkdir -p "${AGENT_HOME}/bin"
+
+  cat >"${AGENT_HOME}/bin/start" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+export HERMES_HOME="${HERMES_HOME:-${AGENT_DATA_DIR:-/home/agent/.hermes}}"
+export HERMES_VENV="${HERMES_VENV:-/opt/hermes/venv}"
+export PATH="${HERMES_VENV}/bin:${PATH}"
+export API_SERVER_ENABLED="${API_SERVER_ENABLED:-true}"
+export API_SERVER_HOST="${API_SERVER_HOST:-0.0.0.0}"
+export API_SERVER_PORT="${API_SERVER_PORT:-${AGENT_PORT:-8642}}"
+export API_SERVER_KEY="${API_SERVER_KEY:-change-me-local-dev}"
+
+mkdir -p "$HERMES_HOME" "${AGENT_WORKSPACE:-/workspace}"
+
+if [[ "$#" -eq 0 ]]; then
+  exec hermes gateway run
+fi
+
+case "$1" in
+  hermes|python|python3|bash|sh)
+    exec "$@"
+    ;;
+  *)
+    exec hermes "$@"
+    ;;
+esac
+EOF
+
+  chmod +x "${AGENT_HOME}/bin/start"
 }
 
 install_agent() {
@@ -125,8 +160,15 @@ install_agent() {
   checkout_hermes_source
   install_hermes_runtime
   write_default_config
+  install_agent_start
 
-  [[ -x "${HERMES_VENV}/bin/hermes" ]] || fail "hermes binary was not installed"
+  if [[ ! -x "${HERMES_VENV}/bin/hermes" ]]; then
+    fail "hermes binary was not installed"
+  fi
+
+  if [[ ! -x "${AGENT_HOME}/bin/start" ]]; then
+    fail "agent start file was not installed"
+  fi
 }
 
 main() {
