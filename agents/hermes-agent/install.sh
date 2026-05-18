@@ -188,6 +188,7 @@ API_SERVER_HOST=0.0.0.0
 API_SERVER_PORT=8642
 # API_SERVER_KEY is supplied by /opt/agent/bin/start unless overridden at runtime.
 ENVFILE
+    chmod 600 "${HERMES_HOME}/.env"
   fi
 }
 
@@ -233,6 +234,7 @@ API_SERVER_HOST=0.0.0.0
 API_SERVER_PORT=8642
 # API_SERVER_KEY must be supplied at runtime through env or Kubernetes Secret.
 ENVFILE
+    chmod 600 "${HERMES_HOME}/.env"
   fi
 
   exec hermes gateway run

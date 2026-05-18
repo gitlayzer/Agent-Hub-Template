@@ -292,7 +292,7 @@ docker run -d \
   ' >/dev/null
 wait_for_hermes
 
-docker exec "$HERMES_CONTAINER" ai-agent-switch client show hermes --json | python3 -c 'import json, sys; expected=sys.argv[1]; payload=json.load(sys.stdin); assert payload["providerId"] == "ccswitch", payload; assert payload["modelId"] == expected, payload' "$CCSWITCH_MODEL"
+docker exec --user agent -e HOME=/home/agent "$HERMES_CONTAINER" ai-agent-switch client show hermes --json | python3 -c 'import json, sys; expected=sys.argv[1]; payload=json.load(sys.stdin); assert payload["providerId"] == "ccswitch", payload; assert payload["modelId"] == expected, payload' "$CCSWITCH_MODEL"
 hermes_output="$(mktemp)"
 curl --noproxy '*' -fsS --max-time 90 "http://127.0.0.1:${HERMES_HOST_PORT}/v1/chat/completions" \
   -H 'Content-Type: application/json' \
@@ -331,7 +331,7 @@ docker run -d \
   ' >/dev/null
 wait_for_openclaw
 
-docker exec "$OPENCLAW_CONTAINER" ai-agent-switch client show openclaw --json | python3 -c 'import json, sys; expected=sys.argv[1]; payload=json.load(sys.stdin); assert payload["providerId"] == "ccswitch", payload; assert payload["modelId"] == expected, payload' "$CCSWITCH_MODEL"
+docker exec --user agent -e HOME=/home/agent "$OPENCLAW_CONTAINER" ai-agent-switch client show openclaw --json | python3 -c 'import json, sys; expected=sys.argv[1]; payload=json.load(sys.stdin); assert payload["providerId"] == "ccswitch", payload; assert payload["modelId"] == expected, payload' "$CCSWITCH_MODEL"
 openclaw_output="$(mktemp)"
 run_openclaw_gateway_infer "$openclaw_output"
 assert_openclaw_gateway_text "$openclaw_output"

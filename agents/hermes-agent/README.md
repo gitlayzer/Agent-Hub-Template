@@ -21,16 +21,22 @@
 ### 默认启动
 
 ```bash
-docker run --rm -p 127.0.0.1:28642:8642 agent-hub/hermes-agent:dev
+docker run --rm \
+  -p 127.0.0.1:28642:8642 \
+  -e API_SERVER_KEY=sk-local-hermes \
+  agent-hub/hermes-agent:dev
 ```
 
 等价于：
 
 ```bash
-docker run --rm -p 127.0.0.1:28642:8642 agent-hub/hermes-agent:dev start
+docker run --rm \
+  -p 127.0.0.1:28642:8642 \
+  -e API_SERVER_KEY=sk-local-hermes \
+  agent-hub/hermes-agent:dev start
 ```
 
-生产部署必须通过运行时环境变量或 Kubernetes Secret 提供 `API_SERVER_KEY`。
+默认启动必须通过运行时环境变量或 Kubernetes Secret 提供 `API_SERVER_KEY`。
 
 镜像内部固定执行：
 
@@ -117,7 +123,7 @@ docker run -d \
     exec /opt/agent/bin/start
   '
 
-docker exec hermes-local ai-agent-switch client show hermes --json
+docker exec --user agent -e HOME=/home/agent hermes-local ai-agent-switch client show hermes --json
 ```
 
 本地持久化测试建议在启动长驻 gateway 前完成 `init`，这和 Agent Hub 初始化容器配置的路径一致。

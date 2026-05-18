@@ -127,7 +127,7 @@ done
 [[ "$ready" -eq 1 ]] || fail "OpenClaw readiness endpoint did not become ready"
 
 printf '==> applying Agent Hub model through ai-agent-switch\n'
-docker exec "$CONTAINER" ai-agent-switch agent-hub init \
+docker exec --user agent -e HOME=/home/agent "$CONTAINER" ai-agent-switch agent-hub init \
   --client openclaw \
   --provider-id aiproxy \
   --provider-name "AI Proxy" \
@@ -139,7 +139,7 @@ docker exec "$CONTAINER" ai-agent-switch agent-hub init \
   -y \
   --json | python3 -c 'import json, sys; payload=json.load(sys.stdin); assert payload["applied"] is True, payload'
 
-docker exec "$CONTAINER" ai-agent-switch client show openclaw --json | python3 -c 'import json, sys; payload=json.load(sys.stdin); assert payload["providerId"] == "aiproxy", payload; assert payload["modelId"] == "glm-4.6", payload'
+docker exec --user agent -e HOME=/home/agent "$CONTAINER" ai-agent-switch client show openclaw --json | python3 -c 'import json, sys; payload=json.load(sys.stdin); assert payload["providerId"] == "aiproxy", payload; assert payload["modelId"] == "glm-4.6", payload'
 docker exec "$CONTAINER" sh -lc 'grep -q "\"primary\": \"aiproxy/glm-4.6\"" /home/agent/.openclaw/openclaw.json'
 
 printf '==> OpenClaw smoke passed\n'

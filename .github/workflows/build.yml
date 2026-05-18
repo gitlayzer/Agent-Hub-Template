@@ -29,6 +29,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       count: ${{ steps.matrix.outputs.count }}
       ai-agent-switch-version: ${{ steps.ai-agent-switch.outputs.version }}
+      ai-agent-switch-metadata: ${{ steps.ai-agent-switch.outputs.metadata }}
       ai-agent-switch-source-url: ${{ steps.ai-agent-switch.outputs.source-url }}
       ai-agent-switch-source-ref: ${{ steps.ai-agent-switch.outputs.source-ref }}
     steps:
@@ -54,7 +55,10 @@ jobs:
           fi
           source_url="$SOURCE_URL_INPUT"
           source_ref="$SOURCE_REF_INPUT"
-          if [ -z "$source_url" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; }; then
+          if [ -z "$source_url" ] && [ -n "$source_ref" ]; then
+            source_url="https://github.com/sealos-apps/ai-agent-switch.git"
+          fi
+          if [ -z "$source_url" ] && [ -z "$source_ref" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; }; then
             source_url="https://github.com/sealos-apps/ai-agent-switch.git"
             source_ref="9d78561ecbd35ce775f7acfe70e3bdb6617b9b51"
           fi
@@ -66,7 +70,12 @@ jobs:
             echo "ai-agent-switch source url is required when source ref is set" >&2
             exit 1
           fi
+          metadata="$version"
+          if [ -n "$source_ref" ]; then
+            metadata="${version}+source.${source_ref}"
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "metadata=$metadata" >> "$GITHUB_OUTPUT"
           echo "source-url=$source_url" >> "$GITHUB_OUTPUT"
           echo "source-ref=$source_ref" >> "$GITHUB_OUTPUT"
 
@@ -216,6 +225,7 @@ jobs:
         run: |
           docker build \
             --build-arg "AI_AGENT_SWITCH_VERSION=${{ needs.prepare.outputs['ai-agent-switch-version'] }}" \
+            --build-arg "AI_AGENT_SWITCH_METADATA=${{ needs.prepare.outputs['ai-agent-switch-metadata'] }}" \
             --build-arg "AI_AGENT_SWITCH_SOURCE_URL=${{ needs.prepare.outputs['ai-agent-switch-source-url'] }}" \
             --build-arg "AI_AGENT_SWITCH_SOURCE_REF=${{ needs.prepare.outputs['ai-agent-switch-source-ref'] }}" \
             --file "${{ matrix.path }}/Dockerfile" \
@@ -226,6 +236,7 @@ jobs:
         run: |
           image="agent-hub/${{ matrix.name }}:ci-${{ github.run_id }}"
           expected="${{ needs.prepare.outputs['ai-agent-switch-version'] }}"
+          expected_metadata="${{ needs.prepare.outputs['ai-agent-switch-metadata'] }}"
           case "${{ matrix.name }}" in
             cowagent)
               verify_client="cowagent"
@@ -263,3 +274,5 @@ jobs:
           printf '%s' "$output" | grep -F '"requiresConfirmation": true' >/dev/null
           actual="$(docker image inspect "$image" --format '{{ index .Config.Labels "org.sealos.ai-agent-switch.version" }}')"
           test "$actual" = "$expected"
+          actual_metadata="$(docker image inspect "$image" --format '{{ index .Config.Labels "org.sealos.ai-agent-switch.metadata" }}')"
+          test "$actual_metadata" = "$expected_metadata"

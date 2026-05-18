@@ -2,6 +2,7 @@ ARG BASE_PLATFORM=linux/amd64
 FROM --platform=${BASE_PLATFORM} ghcr.io/gitlayzer/ubuntu:22.04-base
 
 ARG AI_AGENT_SWITCH_VERSION
+ARG AI_AGENT_SWITCH_METADATA
 ARG AI_AGENT_SWITCH_SOURCE_URL
 ARG AI_AGENT_SWITCH_SOURCE_REF
 
@@ -21,7 +22,8 @@ LABEL org.opencontainers.image.title="CowAgent" \
       org.opencontainers.image.source="agents/cowagent" \
       org.opencontainers.image.version="2.0.8" \
       org.sealos.agent.version="2.0.8" \
-      org.sealos.ai-agent-switch.version="${AI_AGENT_SWITCH_VERSION}"
+      org.sealos.ai-agent-switch.version="${AI_AGENT_SWITCH_VERSION}" \
+      org.sealos.ai-agent-switch.metadata="${AI_AGENT_SWITCH_METADATA}"
 
 COPY agents/cowagent/build.env /tmp/build.env
 COPY agents/cowagent/install.sh /tmp/install.sh

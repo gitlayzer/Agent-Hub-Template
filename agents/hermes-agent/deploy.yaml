@@ -53,6 +53,18 @@ spec:
           emptyDir: {}
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  name: hermes-agent-secrets
+  labels:
+    app: hermes-agent
+    app.kubernetes.io/name: hermes-agent
+    app.kubernetes.io/component: agent
+type: Opaque
+stringData:
+  api-server-key: change-me
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: hermes-agent

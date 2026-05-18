@@ -10,6 +10,7 @@ ARG ALL_PROXY
 ARG no_proxy
 ARG NO_PROXY
 ARG AI_AGENT_SWITCH_VERSION
+ARG AI_AGENT_SWITCH_METADATA
 ARG AI_AGENT_SWITCH_SOURCE_URL
 ARG AI_AGENT_SWITCH_SOURCE_REF
 
@@ -32,7 +33,8 @@ LABEL org.opencontainers.image.title="Hermes Agent" \
       org.opencontainers.image.source="agents/hermes-agent" \
       org.opencontainers.image.version="main-59b56d44" \
       org.sealos.agent.version="main-59b56d44" \
-      org.sealos.ai-agent-switch.version="${AI_AGENT_SWITCH_VERSION}"
+      org.sealos.ai-agent-switch.version="${AI_AGENT_SWITCH_VERSION}" \
+      org.sealos.ai-agent-switch.metadata="${AI_AGENT_SWITCH_METADATA}"
 
 COPY agents/hermes-agent/build.env /tmp/build.env
 COPY agents/hermes-agent/install.sh /tmp/install.sh

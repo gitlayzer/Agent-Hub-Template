@@ -128,7 +128,7 @@ done
 [[ "$ready" -eq 1 ]] || fail "Hermes API server did not become ready"
 
 printf '==> applying Agent Hub model through ai-agent-switch\n'
-docker exec "$CONTAINER" ai-agent-switch agent-hub init \
+docker exec --user agent -e HOME=/home/agent "$CONTAINER" ai-agent-switch agent-hub init \
   --client hermes \
   --provider-id aiproxy \
   --provider-name "AI Proxy" \
@@ -140,7 +140,7 @@ docker exec "$CONTAINER" ai-agent-switch agent-hub init \
   -y \
   --json | python3 -c 'import json, sys; payload=json.load(sys.stdin); assert payload["applied"] is True, payload'
 
-docker exec "$CONTAINER" ai-agent-switch client show hermes --json | python3 -c 'import json, sys; payload=json.load(sys.stdin); assert payload["providerId"] == "aiproxy", payload; assert payload["modelId"] == "glm-4.6", payload'
+docker exec --user agent -e HOME=/home/agent "$CONTAINER" ai-agent-switch client show hermes --json | python3 -c 'import json, sys; payload=json.load(sys.stdin); assert payload["providerId"] == "aiproxy", payload; assert payload["modelId"] == "glm-4.6", payload'
 docker exec "$CONTAINER" sh -lc 'grep -q "provider: aiproxy" /home/agent/.hermes/config.yaml'
 docker exec "$CONTAINER" sh -lc 'grep -q "default: glm-4.6" /home/agent/.hermes/config.yaml'
 

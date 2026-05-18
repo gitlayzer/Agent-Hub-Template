@@ -115,8 +115,12 @@ if kind not in {"service", "tool"}:
 for key in ("id", "name", "version", "image", "repo_path", "readme"):
     if not data.get(key):
         raise SystemExit(f"{path}: missing required key {key}")
-if data.get("id") != "_template" and not data.get("ai_agent_switch_version"):
-    raise SystemExit(f"{path}: missing required key ai_agent_switch_version")
+if data.get("id") != "_template":
+    switch_version = data.get("ai_agent_switch_version")
+    if not switch_version:
+        raise SystemExit(f"{path}: missing required key ai_agent_switch_version")
+    if switch_version == "actions-resolved":
+        raise SystemExit(f"{path}: ai_agent_switch_version must be concrete")
 PY
 }
 
@@ -135,8 +139,12 @@ validate_dockerfile_contract() {
   if [[ "$agent_dir" != "agents/_template" ]]; then
     grep -F 'ARG AI_AGENT_SWITCH_VERSION' "$file" >/dev/null || \
       fail "$file must define ARG AI_AGENT_SWITCH_VERSION"
+    grep -F 'ARG AI_AGENT_SWITCH_METADATA' "$file" >/dev/null || \
+      fail "$file must define ARG AI_AGENT_SWITCH_METADATA"
     grep -F 'org.sealos.ai-agent-switch.version' "$file" >/dev/null || \
       fail "$file must label org.sealos.ai-agent-switch.version"
+    grep -F 'org.sealos.ai-agent-switch.metadata' "$file" >/dev/null || \
+      fail "$file must label org.sealos.ai-agent-switch.metadata"
   fi
 
   if grep -Eq '(COPY|ADD)[[:space:]].*(config\.json|config\.sh)' "$file"; then
@@ -185,6 +193,10 @@ validate_workflow_contracts() {
     fail ".github/workflows/build.yml must pass AI_AGENT_SWITCH_SOURCE_URL into docker build"
   grep -F 'AI_AGENT_SWITCH_SOURCE_URL=${{ needs.prepare.outputs' .github/workflows/release.yml >/dev/null || \
     fail ".github/workflows/release.yml must pass AI_AGENT_SWITCH_SOURCE_URL into docker build"
+  grep -F 'AI_AGENT_SWITCH_METADATA=${{ needs.prepare.outputs' .github/workflows/build.yml >/dev/null || \
+    fail ".github/workflows/build.yml must pass AI_AGENT_SWITCH_METADATA into docker build"
+  grep -F 'AI_AGENT_SWITCH_METADATA=${{ needs.prepare.outputs' .github/workflows/release.yml >/dev/null || \
+    fail ".github/workflows/release.yml must pass AI_AGENT_SWITCH_METADATA into docker build"
   if grep -R --line-number -i -E '\[(skip ci|ci skip|skip actions|actions skip)\]' .github/workflows >/dev/null; then
     fail "workflow-generated commits must not include skip-ci directives"
   fi

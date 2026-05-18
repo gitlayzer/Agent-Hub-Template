@@ -30,6 +30,14 @@ The Dockerfile must:
 - copy the shared `entrypoint.sh` to `/opt/agent/entrypoint.sh`
 - run `install.sh` during image build
 
+## Metadata Contract
+
+Each non-template `index.json` must include:
+
+- `ai_agent_switch_version`: the `ai-agent-switch` version or source-ref
+  identifier used when the image was built. Release automation syncs this field
+  from the resolved build metadata.
+
 ## Runtime Contract
 
 All agents use the same startup chain:
@@ -76,6 +84,7 @@ environment variables, Kubernetes Secret, ConfigMap, or mounted files.
 `deploy.yaml` should provide at least:
 
 - `Deployment`
+- any Secret referenced by required runtime environment variables
 - `Service` when the agent exposes a network port
 - `args: ["start"]`
 - `AGENT_PORT` when a port is exposed

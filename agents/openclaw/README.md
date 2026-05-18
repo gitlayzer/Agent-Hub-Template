@@ -23,16 +23,22 @@
 ### 默认启动
 
 ```bash
-docker run --rm -p 127.0.0.1:28789:18789 agent-hub/openclaw:dev
+docker run --rm \
+  -p 127.0.0.1:28789:18789 \
+  -e OPENCLAW_GATEWAY_TOKEN=sk-local-openclaw \
+  agent-hub/openclaw:dev
 ```
 
 等价于：
 
 ```bash
-docker run --rm -p 127.0.0.1:28789:18789 agent-hub/openclaw:dev start
+docker run --rm \
+  -p 127.0.0.1:28789:18789 \
+  -e OPENCLAW_GATEWAY_TOKEN=sk-local-openclaw \
+  agent-hub/openclaw:dev start
 ```
 
-生产部署必须通过运行时环境变量或 Kubernetes Secret 提供 `OPENCLAW_GATEWAY_TOKEN`。
+默认启动必须通过运行时环境变量或 Kubernetes Secret 提供 `OPENCLAW_GATEWAY_TOKEN`。
 
 镜像内部固定执行：
 
@@ -127,7 +133,7 @@ docker run -d \
     exec /opt/agent/bin/start
   '
 
-docker exec openclaw-local ai-agent-switch client show openclaw --json
+docker exec --user agent -e HOME=/home/agent openclaw-local ai-agent-switch client show openclaw --json
 ```
 
 容器默认把 `gateway.bind` 固定为 `lan`，这样 `docker run -p ...` 后宿主机可以直接访问 published port。这里额外设置 `OPENCLAW_NO_RESPAWN=1`，避免 `docker run` 场景下需要 full-process restart 的配置变更直接让容器退出；默认设置 `OPENCLAW_SKIP_CHANNELS=1`，沿用 upstream dev/live-test 入口，避免容器网络里启动 Telegram 等频道 sidecar；默认设置 `OPENCLAW_DISABLE_BONJOUR=1`，沿用 upstream Docker 建议，避免 Docker bridge 网络里的 mDNS 探测导致 gateway 不稳定。
