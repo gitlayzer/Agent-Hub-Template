@@ -3,7 +3,7 @@
 ## 本地依赖
 
 - `python3`: 用于 JSON 校验和部分 smoke 断言。
-- `python3` + `PyYAML` 或 `ruby`: 用于 `deploy.yaml` 语法校验。
+- `python3` + `PyYAML` 或 `ruby`: 用于 YAML 语法校验。
 - `docker`: 用于构建和运行 Hermes/OpenClaw smoke 镜像。
 - `curl`: 用于 gateway 和 ccswitch HTTP 检查。
 - `npm`: smoke 脚本默认用它解析最新 `ai-agent-switch` 版本；也可以显式传入 `AI_AGENT_SWITCH_VERSION`。

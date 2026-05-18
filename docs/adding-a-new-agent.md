@@ -11,11 +11,15 @@ agents/my-agent/
   install.sh
   entrypoint.sh
   index.json
-  deploy.yaml
+  template.yaml
   README.md
+  manifests/
+    devbox.yaml.tmpl
+    service.yaml.tmpl
+    ingress.yaml.tmpl
 ```
 
-不要新增 `config.sh` 或 `config.json`。
+不要新增 `config.sh`、`config.json`、`bootstrap.sh` 或 `healthcheck.sh`。
 
 ## 文件职责
 
@@ -24,8 +28,9 @@ agents/my-agent/
 - `install.sh`: 安装真实上游 agent，并生成 `/opt/agent/bin/start`
 - `entrypoint.sh`: 所有 agent 共用，保持和 `agents/_template/entrypoint.sh` 完全一致
 - `index.json`: Agent Hub 展示元数据，包含 `runtime.kind`
-- `deploy.yaml`: Kubernetes 部署模板，容器使用 `args: ["start"]`
 - `README.md`: 当前 agent 的构建、运行、配置和测试说明
+- `template.yaml`: Agent Hub 模板目录元数据、访问能力、设置 schema 和模型预设
+- `manifests/*.yaml.tmpl`: Agent Hub 渲染的 Devbox、Service、Ingress 模板
 
 ## 配置原则
 
@@ -44,10 +49,14 @@ agents/my-agent/
 3. 在 `install.sh` 中实现上游安装逻辑
 4. 在 `install.sh` 中生成 `/opt/agent/bin/start`
 5. 更新 `index.json`
-6. 更新 `deploy.yaml`
-7. 写清楚 `README.md`
+6. 写清楚 `README.md`
+7. 更新同目录的 `template.yaml` 和 `manifests/`，并确保 `template.yaml.image` 和 `index.json.image` 一致
 8. 在 `registry/agents.yaml` 中追加 agent
 9. 本地完成契约、语法、镜像构建和运行测试
+
+`template.yaml` 是 manifests 的元数据源：端口、用户、工作目录和访问路径要在
+`template.yaml` 中定义，再由 `manifests/*.yaml.tmpl` 通过 `.Agent.*` 渲染。不要在
+manifests 里为单个 agent 硬编码另一套 `user`、`workingDir` 或端口。
 
 ## 本地基础检查
 

@@ -11,13 +11,29 @@ Each agent directory must contain:
 - `install.sh`
 - `entrypoint.sh`
 - `index.json`
-- `deploy.yaml`
+- `template.yaml`
 - `README.md`
+- `manifests/devbox.yaml.tmpl`
+- `manifests/service.yaml.tmpl`
+- `manifests/ingress.yaml.tmpl`
+
+Each agent keeps its Agent Hub runtime template inside its own directory:
+
+```text
+agents/<agent-id>/
+  template.yaml
+  manifests/
+    devbox.yaml.tmpl
+    service.yaml.tmpl
+    ingress.yaml.tmpl
+```
 
 Each agent directory must not contain:
 
 - `config.sh`
 - `config.json`
+- `bootstrap.sh`
+- `healthcheck.sh`
 
 ## Build Contract
 
@@ -79,17 +95,49 @@ The shared entrypoint exports:
 Agent-specific secrets and provider settings must be injected externally through
 environment variables, Kubernetes Secret, ConfigMap, or mounted files.
 
-## Kubernetes Contract
+## Agent Hub Template Contract
 
-`deploy.yaml` should provide at least:
+`agents/<agent-id>/template.yaml` follows the schema used by
+`sealos-apps/agent-hub`, not the generic `app.sealos.io/v1 Template` CR.
 
-- `Deployment`
-- any Secret referenced by required runtime environment variables
-- `Service` when the agent exposes a network port
-- `args: ["start"]`
-- `AGENT_PORT` when a port is exposed
-- `/workspace` as the working directory
+Required metadata includes:
 
-Do not mount an empty directory over a path that contains required default
-configuration unless the mount provides replacement files or `/opt/agent/bin/start`
-bootstraps the required files before launching the runtime.
+- `id`
+- `name`
+- `shortName`
+- `description`
+- `image`
+- `port`
+- `defaultArgs: ["start"]`
+- `backendSupported`
+- `workingDir`
+- `manifestDir: manifests`
+- `user`
+- `presentation`
+- `workspaces`
+- `access`
+- `actions`
+- `settings`
+- `regionModelPresets`
+
+The template image must match `agents/<agent>/index.json.image`. Release
+automation keeps both files synchronized after dev image publishing.
+
+`template.yaml` is the metadata source for local manifests:
+
+- `port` must match the Devbox exposed port, Service port, and Ingress backend port.
+- `workingDir` must match `access.files.rootPath` and is rendered into Devbox
+  `spec.config.workingDir`, `AGENT_WORKSPACE`, and `AGENT_WORKDIR`.
+- `user` is rendered into Devbox `spec.config.user`.
+- `defaultArgs` must stay `["start"]`.
+- `backendSupported` must be `true` and `manifestDir` must be `manifests`.
+- `bootstrap` and `healthcheck` are not part of this repository contract.
+- `deploy.yaml` is not part of this repository contract; Agent Hub deployment
+  resources live under `manifests/`.
+
+The manifest templates are rendered by Agent Hub with Go template data such as
+`.Agent.Name`, `.Agent.Namespace`, `.Image`, `.SelectorLabels`, and
+`.IngressDomain`. They must create a `Devbox`, `Service`, and `Ingress`.
+
+The Devbox must use `args: ["start"]` so the image goes through the shared
+`/opt/agent/entrypoint.sh -> /opt/agent/bin/start` runtime chain.

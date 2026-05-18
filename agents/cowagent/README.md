@@ -25,7 +25,7 @@ This agent follows the shared Agent Hub runtime contract:
 - `install.sh`: installs CowAgent from upstream source and writes `/opt/agent/bin/start`
 - `entrypoint.sh`: shared Agent Hub command router
 - `index.json`: Agent Hub display metadata
-- `deploy.yaml`: Kubernetes deployment and service manifest
+- `template.yaml` and `manifests/`: Agent Hub deployment template
 
 The pinned upstream source ref is `2.0.8`.
 
@@ -108,12 +108,12 @@ docker build \
   -t agent-hub/cowagent:dev .
 ```
 
-## Kubernetes notes
+## Agent Hub template notes
 
-The deployment template exposes port `9899` and uses `args: ["start"]`.
+The manifest templates expose port `9899` and use `args: ["start"]`.
 
-Secrets should be provided through a Kubernetes Secret named `cowagent-secrets`
-or adjusted in `deploy.yaml`.
+Runtime secrets should be provided by Agent Hub settings or external Kubernetes
+Secret/ConfigMap wiring.
 
 Suggested keys:
 

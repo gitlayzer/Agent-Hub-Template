@@ -1,0 +1,144 @@
+id: cowagent
+name: CowAgent
+shortName: CowAgent
+description: CowAgent Web console assistant with skills, memory, tools, and multi-channel integrations.
+image: ghcr.io/nightwhite/cowagent:dev-9be0d3087285
+port: 9899
+defaultArgs:
+  - start
+backendSupported: true
+workingDir: /workspace
+manifestDir: manifests
+user: agent
+presentation:
+  logoKey: cowagent
+  brandColor: "#7c3aed"
+  docsLabel: Web console
+workspaces:
+  - key: overview
+    label: Overview
+  - key: web-ui
+    label: Web UI
+  - key: files
+    label: Files
+  - key: settings
+    label: Settings
+access:
+  - key: web-ui
+    label: Web UI
+    path: /
+  - key: terminal
+    label: Terminal
+  - key: files
+    label: Files
+    rootPath: /workspace
+  - key: ssh
+    label: SSH
+actions:
+  - key: open-terminal
+    label: Terminal
+  - key: open-files
+    label: Files
+  - key: open-settings
+    label: Settings
+  - key: run
+    label: Start
+  - key: pause
+    label: Pause
+  - key: delete
+    label: Delete
+settings:
+  runtime:
+    - key: cpu
+      label: CPU
+      type: quantity
+      required: true
+      binding:
+        kind: runtime
+        key: cpu
+    - key: memory
+      label: Memory
+      type: quantity
+      required: true
+      binding:
+        kind: runtime
+        key: memory
+    - key: storage
+      label: Storage
+      type: quantity
+      required: true
+      binding:
+        kind: runtime
+        key: storage
+  agent:
+    - key: provider
+      label: Provider
+      type: select
+      required: true
+      binding:
+        kind: agent
+        key: modelProvider
+      rebootstrap: true
+      options:
+        - value: custom:aiproxy-chat
+          label: AI-Proxy - Chat Completions
+        - value: custom:aiproxy-responses
+          label: AI-Proxy - Responses API
+    - key: model
+      label: Model
+      type: select
+      required: true
+      binding:
+        kind: agent
+        key: model
+      rebootstrap: true
+    - key: baseURL
+      label: Base URL
+      type: url
+      required: true
+      binding:
+        kind: agent
+        key: modelBaseURL
+      rebootstrap: true
+    - key: webPassword
+      label: Web Password
+      type: text
+      required: false
+      binding:
+        kind: env
+        name: COWAGENT_WEB_PASSWORD
+    - key: keySource
+      label: Key Source
+      type: text
+      readOnly: true
+      binding:
+        kind: derived
+        key: keySource
+regionModelPresets:
+  us:
+    - value: gpt-5.4-mini
+      label: GPT-5.4 Mini
+      helper: OpenAI
+      provider: custom:aiproxy-responses
+      apiMode: codex_responses
+    - value: glm-4.6
+      label: GLM-4.6
+      helper: GLM
+      provider: custom:aiproxy-chat
+      apiMode: chat_completions
+    - value: qwen3-coder-plus
+      label: Qwen3 Coder Plus
+      helper: Qwen
+      provider: custom:aiproxy-chat
+      apiMode: chat_completions
+  cn:
+    - value: glm-4.6
+      label: GLM-4.6
+      helper: GLM
+      provider: custom:aiproxy-chat
+      apiMode: chat_completions
+    - value: qwen3-coder-plus
+      label: Qwen3 Coder Plus
+      helper: Qwen
+      provider: custom:aiproxy-chat
+      apiMode: chat_completions

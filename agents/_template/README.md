@@ -19,8 +19,15 @@ This directory is the minimal scaffold for adding an Agent Hub runtime image.
 - `install.sh`: installs the upstream runtime and writes `/opt/agent/bin/start`
 - `entrypoint.sh`: shared command router
 - `index.json`: Agent Hub metadata
-- `deploy.yaml`: Kubernetes deployment template
+- `template.yaml`: Agent Hub catalog metadata and settings schema
+- `manifests/devbox.yaml.tmpl`: Agent Hub Devbox template
+- `manifests/service.yaml.tmpl`: Agent Hub Service template
+- `manifests/ingress.yaml.tmpl`: Agent Hub Ingress template
 - `README.md`: agent-specific usage notes
+
+Keep the Agent Hub template files in the agent directory itself. Do not create a
+top-level `template/` directory, and do not add `bootstrap.sh` or
+`healthcheck.sh`.
 
 ## Add A New Agent
 

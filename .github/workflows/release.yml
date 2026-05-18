@@ -249,10 +249,11 @@ jobs:
               index["ai_agent_switch_version"] = os.environ["AI_AGENT_SWITCH_METADATA"]
               index_path.write_text(json.dumps(index, indent=2) + "\n")
 
-              deploy_path = path / "deploy.yaml"
-              deploy = deploy_path.read_text()
-              deploy = re.sub(r"(^\s*image:\s*).+$", rf"\1{image}", deploy, count=1, flags=re.MULTILINE)
-              deploy_path.write_text(deploy)
+              template_path = path / "template.yaml"
+              if template_path.exists():
+                  template = template_path.read_text()
+                  template = re.sub(r"(^image:\s*).+$", rf"\1{image}", template, count=1, flags=re.MULTILINE)
+                  template_path.write_text(template)
           PY
 
       - name: Commit synced templates
@@ -263,6 +264,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add agents/*/index.json agents/*/deploy.yaml
+          git add agents/*/index.json agents/*/template.yaml
           git commit -m "chore: sync dev agent image refs"
           git push origin "HEAD:${GITHUB_REF_NAME}"

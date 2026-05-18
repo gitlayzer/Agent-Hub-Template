@@ -9,9 +9,17 @@
 ```text
 agents/
   _template/
+    template.yaml
+    manifests/
   hermes-agent/
+    template.yaml
+    manifests/
   openclaw/
+    template.yaml
+    manifests/
   cowagent/
+    template.yaml
+    manifests/
 registry/
   agents.yaml
 docs/
@@ -27,13 +35,18 @@ test/
 - `install.sh`
 - `entrypoint.sh`
 - `index.json`
-- `deploy.yaml`
+- `template.yaml`
+- `manifests/devbox.yaml.tmpl`
+- `manifests/service.yaml.tmpl`
+- `manifests/ingress.yaml.tmpl`
 - `README.md`
 
 每个 agent 目录不能再提供：
 
 - `config.sh`
 - `config.json`
+- `bootstrap.sh`
+- `healthcheck.sh`
 
 运行期配置应来自环境变量、Kubernetes Secret、ConfigMap 或挂载文件，不再通过仓库统一配置脚本中转。
 
@@ -55,7 +68,7 @@ test/
 - `entrypoint.sh` 必须和 `agents/_template/entrypoint.sh` 保持一致
 - agent 自己的启动逻辑只写在 `/opt/agent/bin/start`
 - `/opt/agent/bin/start` 由 `install.sh` 在镜像构建时生成
-- `deploy.yaml` 中容器默认使用 `args: ["start"]`
+- `manifests/devbox.yaml.tmpl` 中实例默认使用 `args: ["start"]`
 
 共享入口会导出这些标准变量：
 
@@ -83,7 +96,22 @@ GitHub Actions 会根据 `registry/agents.yaml` 生成构建矩阵。
 - tag / 手动发布构建正式镜像：
   - `ghcr.io/<owner>/<agent>:<index.json.version>`
 
-发布成功后，Actions 会把 enabled agents 的 `index.json.image` 和 `deploy.yaml` 镜像引用同步为最新 dev 镜像。
+发布成功后，Actions 会把 enabled agents 的 `index.json.image` 和 `agents/<agent>/template.yaml` 镜像引用同步为最新 dev 镜像。
+
+## Agent Hub 模板
+
+每个 agent 目录内部自带 Agent Hub 模板：
+
+- `template.yaml`: 模板目录元数据、访问能力、运行设置和模型预设
+- `manifests/devbox.yaml.tmpl`: Devbox Go template
+- `manifests/service.yaml.tmpl`: Service Go template
+- `manifests/ingress.yaml.tmpl`: Ingress Go template
+
+`template.yaml` 中的 `port`、`workingDir`、`user`、`defaultArgs`、`access` 和
+`manifestDir` 必须和 `manifests/` 渲染出的资源保持一致；本仓库不使用
+`bootstrap.sh` 或 `healthcheck.sh`。
+
+当前已提供 `agents/hermes-agent`、`agents/openclaw`、`agents/cowagent` 的本地模板。仓库不再维护顶层 `template/` 目录，也不再要求 `bootstrap.sh` 或 `healthcheck.sh`。
 
 ## 本地验证
 

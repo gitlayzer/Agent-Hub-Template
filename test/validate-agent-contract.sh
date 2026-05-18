@@ -152,36 +152,248 @@ validate_dockerfile_contract() {
   fi
 }
 
-validate_deploy_contract() {
-  local file="$1"
-  if python3 -c 'import yaml' >/dev/null 2>&1; then
-    python3 - "$file" <<'PY'
+validate_template_metadata() {
+  local agent_dir="$1"
+  local template_dir="$2"
+  local index_json
+  local template_json
+
+  index_json="$(python3 - "$agent_dir/index.json" <<'PY'
+import json
 import sys
 from pathlib import Path
-import yaml
 
-path = Path(sys.argv[1])
-docs = [doc for doc in yaml.safe_load_all(path.read_text(encoding="utf-8")) if isinstance(doc, dict)]
-deployments = [doc for doc in docs if doc.get("kind") == "Deployment"]
-if not deployments:
-    raise SystemExit(f"{path}: deploy YAML must include a Deployment")
-for deployment in deployments:
-    containers = (
-        deployment.get("spec", {})
-        .get("template", {})
-        .get("spec", {})
-        .get("containers", [])
-    )
-    if not isinstance(containers, list):
-        raise SystemExit(f"{path}: Deployment containers must be a list")
-    if not any(container.get("args") == ["start"] for container in containers if isinstance(container, dict)):
-        raise SystemExit(f'{path}: Deployment container args must be ["start"]')
+print(json.dumps(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))))
 PY
-    return
+)"
+
+  if python3 -c 'import yaml' >/dev/null 2>&1; then
+    template_json="$(python3 - "$template_dir/template.yaml" <<'PY'
+import json
+import yaml
+import sys
+from pathlib import Path
+
+print(json.dumps(yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))))
+PY
+)"
+  elif command -v ruby >/dev/null 2>&1; then
+    template_json="$(ruby -rjson -ryaml -e 'puts JSON.generate(YAML.safe_load(File.read(ARGV[0]), permitted_classes: [], permitted_symbols: [], aliases: true))' "$template_dir/template.yaml")"
+  else
+    fail "python3 with PyYAML or ruby is required to validate Agent Hub template metadata"
   fi
 
-  grep -F 'kind: Deployment' "$file" >/dev/null || fail "$file must include a Deployment"
-  grep -F 'args: ["start"]' "$file" >/dev/null || fail "$file must set args: [\"start\"]"
+  INDEX_JSON="$index_json" TEMPLATE_JSON="$template_json" python3 - "$agent_dir/index.json" "$template_dir/template.yaml" <<'PY'
+import json
+import os
+import sys
+
+index_path = sys.argv[1]
+template_path = sys.argv[2]
+index = json.loads(os.environ["INDEX_JSON"])
+template = json.loads(os.environ["TEMPLATE_JSON"])
+if not isinstance(template, dict):
+    raise SystemExit(f"{template_path}: top-level YAML must be a mapping")
+
+required = [
+    "id",
+    "name",
+    "shortName",
+    "description",
+    "image",
+    "port",
+    "defaultArgs",
+    "backendSupported",
+    "workingDir",
+    "user",
+    "presentation",
+    "workspaces",
+    "access",
+    "actions",
+    "settings",
+    "regionModelPresets",
+]
+for key in required:
+    if key not in template or template[key] in ("", None):
+        raise SystemExit(f"{template_path}: missing required key {key}")
+
+if template["id"] != index["id"]:
+    raise SystemExit(f"{template_path}: id must match {index_path}")
+if template["image"] != index["image"]:
+    raise SystemExit(f"{template_path}: image must match {index_path}")
+if template.get("defaultArgs") != ["start"]:
+    raise SystemExit(f'{template_path}: defaultArgs must be ["start"]')
+if not isinstance(template.get("port"), int) or template["port"] <= 0:
+    raise SystemExit(f"{template_path}: port must be a positive integer")
+for legacy in ("bootstrap", "healthcheck"):
+    if legacy in template:
+        raise SystemExit(f"{template_path}: {legacy} is not supported in this template repository")
+
+presentation = template.get("presentation")
+if not isinstance(presentation, dict):
+    raise SystemExit(f"{template_path}: presentation must be a mapping")
+for key in ("logoKey", "brandColor", "docsLabel"):
+    if not presentation.get(key):
+        raise SystemExit(f"{template_path}: presentation.{key} is required")
+
+settings = template.get("settings")
+if not isinstance(settings, dict):
+    raise SystemExit(f"{template_path}: settings must be a mapping")
+if not isinstance(settings.get("runtime"), list):
+    raise SystemExit(f"{template_path}: settings.runtime must be a list")
+if not isinstance(settings.get("agent"), list):
+    raise SystemExit(f"{template_path}: settings.agent must be a list")
+runtime_keys = {field.get("key") for field in settings["runtime"] if isinstance(field, dict)}
+for key in ("cpu", "memory", "storage"):
+    if key not in runtime_keys:
+        raise SystemExit(f"{template_path}: settings.runtime must include {key}")
+agent_fields = [field for field in settings["agent"] if isinstance(field, dict)]
+agent_field_index = {field.get("key"): field for field in agent_fields}
+for key in ("provider", "model", "baseURL"):
+    field = agent_field_index.get(key)
+    if not isinstance(field, dict):
+        raise SystemExit(f"{template_path}: settings.agent must include {key}")
+    if field.get("required") is not True:
+        raise SystemExit(f"{template_path}: settings.agent.{key} must be required")
+    if field.get("rebootstrap") is not True:
+        raise SystemExit(f"{template_path}: settings.agent.{key} must set rebootstrap: true")
+
+provider_options = {
+    str(option.get("value")).strip()
+    for option in agent_field_index["provider"].get("options", [])
+    if isinstance(option, dict) and str(option.get("value", "")).strip()
+}
+if not provider_options:
+    raise SystemExit(f"{template_path}: settings.agent.provider must define options")
+
+presets = template.get("regionModelPresets")
+if not isinstance(presets, dict):
+    raise SystemExit(f"{template_path}: regionModelPresets must be a mapping")
+for region in ("us", "cn"):
+    if region not in presets or not isinstance(presets[region], list):
+        raise SystemExit(f"{template_path}: regionModelPresets.{region} must be a list")
+    if not presets[region]:
+        raise SystemExit(f"{template_path}: regionModelPresets.{region} must not be empty")
+    for item in presets[region]:
+        if not isinstance(item, dict):
+            raise SystemExit(f"{template_path}: regionModelPresets.{region} entries must be mappings")
+        for key in ("value", "label", "provider", "apiMode"):
+            if not item.get(key):
+                raise SystemExit(f"{template_path}: regionModelPresets.{region} entries must include {key}")
+        if str(item["provider"]).strip() not in provider_options:
+            raise SystemExit(f"{template_path}: model preset provider {item['provider']} is missing from provider options")
+
+if template.get("backendSupported") is True:
+    if template.get("manifestDir") != "manifests":
+        raise SystemExit(f"{template_path}: backendSupported templates must set manifestDir: manifests")
+else:
+    raise SystemExit(f"{template_path}: backendSupported must be true for local manifests")
+
+access = template.get("access")
+if not isinstance(access, list):
+    raise SystemExit(f"{template_path}: access must be a list")
+access_index = {item.get("key"): item for item in access if isinstance(item, dict)}
+if not any(key in access_index for key in ("api", "web-ui")):
+    raise SystemExit(f"{template_path}: access must include api or web-ui")
+for key in ("api", "web-ui"):
+    if key in access_index and not str(access_index[key].get("path", "")).startswith("/"):
+        raise SystemExit(f"{template_path}: access.{key}.path must start with /")
+files = access_index.get("files")
+if isinstance(files, dict) and files.get("rootPath") != template.get("workingDir"):
+    raise SystemExit(f"{template_path}: access.files.rootPath must match workingDir")
+PY
+}
+
+validate_manifest_templates() {
+  local template_dir="$1"
+  local port="$2"
+
+  for file in devbox.yaml.tmpl service.yaml.tmpl ingress.yaml.tmpl; do
+    [[ -f "$template_dir/manifests/$file" ]] || fail "$template_dir is missing manifests/$file"
+  done
+
+  grep -F 'kind: Devbox' "$template_dir/manifests/devbox.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/devbox.yaml.tmpl must define a Devbox"
+  grep -F 'type: "SSHGate"' "$template_dir/manifests/devbox.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/devbox.yaml.tmpl must use SSHGate networking"
+  grep -F 'args:' "$template_dir/manifests/devbox.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/devbox.yaml.tmpl must define args"
+  grep -F '      - start' "$template_dir/manifests/devbox.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/devbox.yaml.tmpl must start with the shared start command"
+  grep -F "containerPort: $port" "$template_dir/manifests/devbox.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/devbox.yaml.tmpl must expose container port $port"
+  grep -F 'user: {{ quote .Agent.User }}' "$template_dir/manifests/devbox.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/devbox.yaml.tmpl must derive user from template.yaml"
+  grep -F 'workingDir: {{ quote .Agent.WorkingDir }}' "$template_dir/manifests/devbox.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/devbox.yaml.tmpl must derive workingDir from template.yaml"
+  grep -F 'value: {{ quote .Agent.WorkingDir }}' "$template_dir/manifests/devbox.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/devbox.yaml.tmpl must expose AGENT_WORKSPACE/AGENT_WORKDIR from template.yaml"
+
+  grep -F 'kind: Service' "$template_dir/manifests/service.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/service.yaml.tmpl must define a Service"
+  grep -F "port: $port" "$template_dir/manifests/service.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/service.yaml.tmpl must expose service port $port"
+  grep -F "targetPort: $port" "$template_dir/manifests/service.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/service.yaml.tmpl must target port $port"
+
+  grep -F 'kind: Ingress' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must define an Ingress"
+  grep -F 'cloud.sealos.io/app-deploy-manager:' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must set cloud.sealos.io/app-deploy-manager"
+  grep -F 'cloud.sealos.io/app-deploy-manager-domain:' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must set cloud.sealos.io/app-deploy-manager-domain"
+  grep -F 'kubernetes.io/ingress.class: "nginx"' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must set kubernetes.io/ingress.class"
+  grep -F 'nginx.ingress.kubernetes.io/proxy-body-size: "32m"' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must set nginx proxy-body-size"
+  grep -F 'nginx.ingress.kubernetes.io/ssl-redirect: "false"' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must disable nginx ssl redirect"
+  grep -F 'nginx.ingress.kubernetes.io/backend-protocol: "HTTP"' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must set nginx backend protocol"
+  grep -F 'nginx.ingress.kubernetes.io/server-snippet: |' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must set nginx server-snippet"
+  grep -F 'host: {{ quote .IngressDomain }}' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must use .IngressDomain"
+  grep -F "number: $port" "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must route to port $port"
+  grep -F 'secretName: "wildcard-cert"' "$template_dir/manifests/ingress.yaml.tmpl" >/dev/null || \
+    fail "$template_dir/manifests/ingress.yaml.tmpl must use wildcard-cert TLS"
+}
+
+read_template_port() {
+  local file="$1"
+
+  if python3 -c 'import yaml' >/dev/null 2>&1; then
+    python3 - "$file" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+print(yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))["port"])
+PY
+    return
+  elif command -v ruby >/dev/null 2>&1; then
+    ruby -ryaml -e 'puts YAML.safe_load(File.read(ARGV[0]), permitted_classes: [], permitted_symbols: [], aliases: true)["port"]' "$file"
+    return
+  else
+    fail "python3 with PyYAML or ruby is required to read $file"
+  fi
+}
+
+validate_agent_hub_template_contract() {
+  local agent_dir="$1"
+  local template_dir="$agent_dir"
+  local port
+
+  [[ -f "$template_dir/template.yaml" ]] || fail "$agent_dir is missing template.yaml"
+
+  validate_yaml_file "$template_dir/template.yaml"
+  port="$(read_template_port "$template_dir/template.yaml")"
+  validate_manifest_templates "$template_dir" "$port"
+
+  if [[ "$agent_dir" != "agents/_template" ]]; then
+    validate_template_metadata "$agent_dir" "$template_dir"
+  fi
 }
 
 validate_workflow_contracts() {
@@ -202,8 +414,9 @@ validate_workflow_contracts() {
   fi
 }
 
-required_files=(Dockerfile build.env install.sh entrypoint.sh index.json deploy.yaml README.md)
-forbidden_files=(config.sh config.json)
+required_files=(Dockerfile build.env install.sh entrypoint.sh index.json template.yaml README.md)
+forbidden_files=(config.sh config.json deploy.yaml bootstrap.sh healthcheck.sh)
+[[ ! -d template ]] || fail "templates must live in each agents/<agent>/ directory; remove top-level template/"
 entrypoint_ref="$(mktemp)"
 trap 'rm -f "$entrypoint_ref"' EXIT
 cat agents/_template/entrypoint.sh >"$entrypoint_ref"
@@ -231,10 +444,9 @@ for agent_dir in "${agents[@]}"; do
     fail "$agent_dir/entrypoint.sh must match agents/_template/entrypoint.sh"
 
   validate_json_file "$agent_dir/index.json"
-  validate_yaml_file "$agent_dir/deploy.yaml"
   validate_index "$agent_dir"
   validate_dockerfile_contract "$agent_dir"
-  validate_deploy_contract "$agent_dir/deploy.yaml"
+  validate_agent_hub_template_contract "$agent_dir"
 
   grep -F 'bin/start' "$agent_dir/install.sh" >/dev/null || \
     fail "$agent_dir/install.sh must create /opt/agent/bin/start"
